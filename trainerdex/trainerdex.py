@@ -324,13 +324,33 @@ class TrainerDex:
 		## ##
 		timeout_text = "You failed to answer in time, skipping this field."
 		
-		question = await self.bot.say("XP")
+		question = await self.bot.say("What is your Total XP")
 		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
 		if answer:
 			if 'skip' is in answer.content.lower():
 				pass
 			else:
 				xp = int(answer)
+		else:
+			await self.bot.edit_message(question, timeout_text)
+		
+		question = await self.bot.say("How many different types of Pokemon have you caught?")
+		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
+		if answer:
+			if 'skip' is in answer.content.lower():
+				pass
+			else:
+				dex_caught = int(answer)
+		else:
+			await self.bot.edit_message(question, timeout_text)
+		
+		question = await self.bot.say("How many different types of Pokemon have you seen?")
+		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
+		if answer:
+			if 'skip' is in answer.content.lower():
+				pass
+			else:
+				dex_seen = int(answer)
 		else:
 			await self.bot.edit_message(question, timeout_text)
 		
