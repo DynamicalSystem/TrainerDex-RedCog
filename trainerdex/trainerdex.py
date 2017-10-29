@@ -322,6 +322,17 @@ class TrainerDex:
 			self.client.create_update(trainer, stuff)
 		
 		## ##
+		timeout_text = "You failed to answer in time, skipping this field."
+		
+		question = await self.bot.say("XP")
+		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
+		if answer:
+			if 'skip' is in answer.content.lower():
+				pass
+			else:
+				xp = int(answer)
+		else:
+			await self.bot.edit_message(question, timeout_text)
 		
 		return
 		#trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
