@@ -401,6 +401,13 @@ class TrainerDex:
 				embed.add_field(name='{}. {} {} {}'.format(i+1, trainer.username, trainer.level.level, trainer.team().name), value="{:,}".format(trainer.update.xp))
 		await self.bot.edit_message(message, new_content=str(datetime.date.today()), embed=embed)
 	
+	@commands.command(pass_context=True, no_pm=True)
+	@checks.mod_or_permissions(assign_roles=True)
+	async def say(self, ctx, *, msg: str):
+		"""Simon says...."""
+		await self.bot.delete_message(ctx.message)
+		await self.bot.say(msg)
+	
 	#Mod-commands
 	
 	@commands.command(pass_context=True, enabled=False, no_pm=True)
