@@ -444,7 +444,7 @@ class TrainerDex:
 		else:
 			await self.bot.edit_message(question, timeout_text)
 			
-		question = await self.bot.say("How many big Magikarp do you have?")
+		question = await self.bot.say("How many big Magikarp have you caught?")
 		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
 		if answer:
 			if 'skip' is in answer.content.lower():
@@ -454,7 +454,7 @@ class TrainerDex:
 		else:
 			await self.bot.edit_message(question, timeout_text)
 		
-		question = await self.bot.say("How many tiny Rattata do you have?")
+		question = await self.bot.say("How many tiny Rattata have you caught?")
 		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
 		if answer:
 			if 'skip' is in answer.content.lower():
