@@ -127,7 +127,7 @@ class TrainerDex:
 		if level.level != 40:
 			embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
 		else:
-			embed.add_field(name='Total XP', value='{}'.format(humanize.intword(level.total_xp)))
+			embed.add_field(name='Total XP', value='{}'.format(humanize.intword(trainer.update.xp)))
 		if dailyDiff.change_xp and dailyDiff.change_time:
 			gain = '{:,} since {}. '.format(dailyDiff.change_xp, humanize.naturalday(dailyDiff.old_date))
 			if dailyDiff.change_time.days>1:
@@ -178,7 +178,7 @@ class TrainerDex:
 			if level.level != 40:
 				embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
 			else:
-				embed.add_field(name='Total XP', value='{}'.format(humanize.intword(level.total_xp)))
+				embed.add_field(name='Total XP', value='{}'.format(humanize.intword(trainer.update.xp)))
 			if discordUser:
 				embed.add_field(name='Discord', value='<@{}>'.format(discordUser.id))
 		if trainer.cheater is True or trainer.statistics is False:
@@ -254,10 +254,13 @@ class TrainerDex:
 			await self.bot.say('`Error: '+str(e)+'`')
 	
 	@commands.command(pass_context=True)
-	async def progress(self, ctx):
+	async def progress(self, ctx, trainer=None):
 		"""Find out information about your own progress"""
 		
-		trainer = await self.get_trainer(discord=ctx.message.author.id)
+		if trainer:
+			trainer = await self.get_trainer(username=trainer)
+		else:
+			trainer = await self.get_trainer(discord=ctx.message.author.id)
 		
 		message = await self.bot.say('Thinking...')
 		await self.bot.send_typing(ctx.message.channel)
