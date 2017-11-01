@@ -335,7 +335,7 @@ class TrainerDex:
 		
 		self.skip_all = False
 		
-		xp = await self.question(ctx, verbose="What is your Total XP")
+		xp = await self.question(ctx, verbose="What is your Total XP?")
 		
 		kwargs = {}
 		kwargs['dex_caught'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you caught?")
@@ -348,7 +348,7 @@ class TrainerDex:
 		kwargs['battles_won'] = await self.question(ctx, verbose="How many gym battles have you won?")
 		kwargs['gen_2_dex'] = await self.question(ctx, verbose="How many Gen 2 Pokémon have you caught?")
 		kwargs['berry_fed'] = await self.question(ctx, verbose="How many berries have you fed?")
-		kwargs['gym_defended'] = await self.question(ctx, verbose="How many gyms have you defended?")
+		kwargs['gym_defended'] = await self.question(ctx, verbose="How many hours you defended gyms?")
 		kwargs['big_magikarp'] = await self.question(ctx, verbose="How many big Magikarp have you caught?")
 		kwargs['tiny_rattata'] = await self.question(ctx, verbose="How many tiny Rattata have you caught?")
 		kwargs['pikachu_caught'] = await self.question(ctx, verbose="How many Pikachu have you caught?")
