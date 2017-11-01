@@ -382,7 +382,7 @@ class TrainerDex:
 		user_list = self.client.get_discord_server(ctx.message.server.id).get_users(ctx.message.server)
 		users = []
 		for user in user_list:
-			if user.trainer().statistics==True:
+			if user.trainer().statistics==True and user.trainer().cheater==False:
 				users.append(user)
 		users.sort(key=lambda x:x.trainer().update.xp, reverse=True)
 		embed=discord.Embed(title="Leaderboard")
