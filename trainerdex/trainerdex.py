@@ -60,7 +60,7 @@ class TrainerDex:
 		if self.skip_all:
 			return None
 		
-		message = await self.bot.say(verbose)
+		message = await self.bot.send_message(ctx.message.author, verbose)
 		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
 		if answer:
 			if 'stop' in answer.content.lower():
@@ -321,19 +321,18 @@ class TrainerDex:
 	async def advanced_update(self, ctx): 
 		"""Update your stats, if ran within x minutes of the bog standard xp command, it will modify that"""
 		
-		message = await self.bot.say('*NOT* Looking for recent update...')
+		if ctx.message.channel.is_private==False:
+			message = await self.bot.say("This can get messy, taking this to DMs...")
+		else:
+			message=None
+		pri_message = await self.bot.send_message(ctx.message.author, "This is really simple. Just answer the questions. Don't for commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)")
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
 		if trainer is None:
 			await self.bot.edit_message(message, "Cannot find {} in the database.".format(ctx.message.author.mention))
+			await self.bot.edit_message(pri_message, "Well, this is awkward. I can't find you in the database. Have you registered?")
+			await self.bot.send_message(ctx.message.author, "Message <@319792326958514176> or tweet @TrainerDex for support")
 			return
 		
-		if trainer.update.time_updated >= maya.now().datetime()-datetime.timedelta(seconds=3600):
-			record = trainer.update
-		else:
-			record = None
-		
-		#All the questions will be run here
-		#I need to update libtrainerdex to support badges and to support correcting an update.
 		self.skip_all = False
 		
 		xp = await self.question(ctx, verbose="What is your Total XP")
@@ -383,7 +382,9 @@ class TrainerDex:
 		await asyncio.sleep(1)
 		trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
 		embed = await self.updateCard(trainer)
-		await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
+		if message:
+			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
+		await self.bot.send_message(ctx.message.author, new_content='Success 👍', embed=embed)
 	
 	@update.command(name="name", pass_context=True)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
