@@ -410,6 +410,7 @@ class TrainerDex:
 			except discord.errors.Forbidden:
 				pass
 			return
+		pri_message = await self.bot.send_message(ctx.message.author, "Thank you, I'll just process that now...")
 		
 		update = self.client.create_update(trainer.id, xp, **kwargs)
 		await asyncio.sleep(1)
@@ -417,7 +418,7 @@ class TrainerDex:
 		embed = await self.updateCard(trainer)
 		if message:
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
-		await self.bot.send_message(ctx.message.author, 'Success 👍', embed=embed)
+		await self.bot.edit_message(pri_message, 'Success 👍', embed=embed)
 	
 	@update.command(name="name", pass_context=True)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
