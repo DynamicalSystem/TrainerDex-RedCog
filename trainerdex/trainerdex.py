@@ -329,7 +329,11 @@ class TrainerDex:
 			message = await self.bot.say("This can get messy, taking this to DMs...")
 		else:
 			message=None
-		pri_message = await self.bot.send_message(ctx.message.author, "This is really simple. Just answer the questions. Don't for commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)")
+		try:
+			pri_message = await self.bot.send_message(ctx.message.author, "This is really simple. Just answer the questions. Don't for commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)")
+		except discord.errors.Forbidden:
+			await self.bot.edit_message(message, "This can get messy, taking this to DMs... or not. I can't message you. DM me first, bro!")
+			return
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
 		if trainer is None:
 			await self.bot.edit_message(message, "Cannot find {} in the database.".format(ctx.message.author.mention))
