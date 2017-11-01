@@ -410,13 +410,13 @@ class TrainerDex:
 				pass
 			return
 		
-		update = self.client.create_update(trainer.id, xp, kwargs=kwargs)
+		update = self.client.create_update(trainer.id, xp, **kwargs)
 		await asyncio.sleep(1)
 		trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
 		embed = await self.updateCard(trainer)
 		if message:
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
-		await self.bot.send_message(ctx.message.author, new_content='Success 👍', embed=embed)
+		await self.bot.send_message(ctx.message.author, 'Success 👍', embed=embed)
 	
 	@update.command(name="name", pass_context=True)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
