@@ -55,6 +55,7 @@ class TrainerDex:
 		self.client = trainerdex.Client(token)
 		self.teams = self.client.get_teams()
 		self.skip_all = False
+		self.quit_func = False
 		
 	async def question(self, ctx, verbose):
 		if self.skip_all:
@@ -67,6 +68,9 @@ class TrainerDex:
 				self.skip_all = True
 			elif 'pass' in answer.content.lower():
 				return None
+			elif 'cancel' in answer.content.lower():
+				self.skip_all = True
+				self.quit_func = True
 			else:
 				try:
 					return int(answer.content)
@@ -377,6 +381,16 @@ class TrainerDex:
 		kwargs['gym_badges'] = await self.question(ctx, verbose="How many gym badges have you earned?")
 		
 		self.skip_all = False
+		if self.quit_func == True:
+			self.quit_func = False
+			await self.bot.send_message(ctx.message.author, "Aborted!")
+			if message:
+				await self.bot.delete_message(message)
+			try:
+				await self.bot.delete_message(ctx.message)
+			except discord.errors.Forbidden:
+				pass
+			return
 		
 		update = self.client.create_update(trainer.id, xp, kwargs=kwargs)
 		await asyncio.sleep(1)
