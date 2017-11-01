@@ -32,17 +32,6 @@ Difference = namedtuple('Difference', [
 
 levelup = ["You reached your goal, well done. Now if only applied that much effort at buying {member} pizza, I might be happy!", "Well done on reaching {goal:,}", "much xp, very goal", "Great, you got to {goal:,} XP, now what?"]
 
-def question(ctx, verbose=None):
-	message = await self.bot.say(verbose)
-	answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
-	if answer:
-		if 'skip' is in answer.content.lower():
-			return None
-		else:
-			return int(answer)
-	else:
-		await self.bot.edit_message(message, "You failed to answer in time, skipping this field.")
-
 class DummyUpdate:
 	
 	def __init__(self, trainer):
@@ -65,7 +54,27 @@ class TrainerDex:
 		self.bot = bot
 		self.client = trainerdex.Client(token)
 		self.teams = self.client.get_teams()
+		self.skip_all = False
 		
+	async def question(self, ctx, verbose):
+		if self.skip_all:
+			return None
+		
+		message = await self.bot.say(verbose)
+		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
+		if answer:
+			if 'stop' in answer.content.lower():
+				self.skip_all = True
+			elif 'pass' in answer.content.lower():
+				return None
+			else:
+				try:
+					return int(answer.content)
+				except ValueError:
+					return float(answer.content)
+		else:
+			await self.bot.edit_message(message, "You failed to answer in time, skipping this field.")
+	
 	async def get_trainer(self, username=None, discord=None, account=None, prefered=True, respect_privacy=True):
 		"""Returns a Trainer object for a given discord, trainer username or account id
 		
@@ -312,71 +321,69 @@ class TrainerDex:
 	async def advanced_update(self, ctx): 
 		"""Update your stats, if ran within x minutes of the bog standard xp command, it will modify that"""
 		
-		message = await self.bot.say('Looking for recent update...')
+		message = await self.bot.say('*NOT* Looking for recent update...')
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
 		if trainer is None:
 			await self.bot.edit_message(message, "Cannot find {} in the database.".format(ctx.message.author.mention))
 			return
 		
-		if trainer.update.time_updated >= datetime.datetime.now()-datetime.timedelta(seconds=3600):
+		if trainer.update.time_updated >= maya.now().datetime()-datetime.timedelta(seconds=3600):
 			record = trainer.update
 		else:
 			record = None
 		
 		#All the questions will be run here
 		#I need to update libtrainerdex to support badges and to support correcting an update.
+		self.skip_all = False
 		
-		stuff=None
-		if record:
-			self.client.correct_update(record, stuff)
-		else:
-			self.client.create_update(trainer, stuff)
+		xp = await self.question(ctx, verbose="What is your Total XP")
 		
-		## ##
+		kwargs = {}
+		kwargs['dex_caught'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you caught?")
+		kwargs['dex_seen'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you seen?")
+		kwargs['walk_dist'] = await self.question(ctx, verbose="How much distance have you walked?")
+		kwargs['gen_1_dex'] = await self.question(ctx, verbose="How many Gen 1 Pokémon have you caught?")
+		kwargs['pkmn_caught'] = await self.question(ctx, verbose="How many Pokémon have you caught?")
+		kwargs['pkmn_evolved'] = await self.question(ctx, verbose="How many Pokémon have you evolved?")
+		kwargs['pkstops_spun'] = await self.question(ctx, verbose="How many Pokéstops have you spun?")
+		kwargs['battles_won'] = await self.question(ctx, verbose="How many gym battles have you won?")
+		kwargs['gen_2_dex'] = await self.question(ctx, verbose="How many Gen 2 Pokémon have you caught?")
+		kwargs['berry_fed'] = await self.question(ctx, verbose="How many berries have you fed?")
+		kwargs['gym_defended'] = await self.question(ctx, verbose="How many gyms have you defended?")
+		kwargs['big_magikarp'] = await self.question(ctx, verbose="How many big Magikarp have you caught?")
+		kwargs['tiny_rattata'] = await self.question(ctx, verbose="How many tiny Rattata have you caught?")
+		kwargs['pikachu_caught'] = await self.question(ctx, verbose="How many Pikachu have you caught?")
+		kwargs['unown_alphabet'] = await self.question(ctx, verbose="Out of 26, how many unown have you caught?")
+		kwargs['raids_completed'] = await self.question(ctx, verbose="How many raids have you completed?")
+		kwargs['leg_raids_completed'] = await self.question(ctx, verbose="How many legendary raids have you completed?")
+		kwargs['gen_3_dex'] = await self.question(ctx, verbose="How many Gen 3 Pokémon have you caught?")
+		kwargs['pkmn_normal'] = await self.question(ctx, verbose="How many normal type Pokémon have you caught?")
+		kwargs['pkmn_flying'] = await self.question(ctx, verbose="How many flying type Pokémon have you caught?")
+		kwargs['pkmn_poison'] = await self.question(ctx, verbose="How many poison type Pokémon have you caught?")
+		kwargs['pkmn_ground'] = await self.question(ctx, verbose="How many ground type Pokémon have you caught?")
+		kwargs['pkmn_rock'] = await self.question(ctx, verbose="How many rock type Pokémon have you caught?")
+		kwargs['pkmn_bug'] = await self.question(ctx, verbose="How many bug type Pokémon have you caught?")
+		kwargs['pkmn_steel'] = await self.question(ctx, verbose="How many steel type Pokémon have you caught?")
+		kwargs['pkmn_fire'] = await self.question(ctx, verbose="How many fire type Pokémon have you caught?")
+		kwargs['pkmn_water'] = await self.question(ctx, verbose="How many water type Pokémon have you caught?")
+		kwargs['pkmn_grass'] = await self.question(ctx, verbose="How many grass type Pokémon have you caught?")
+		kwargs['pkmn_electric'] = await self.question(ctx, verbose="How many electric type Pokémon have you caught?")
+		kwargs['pkmn_psychic'] = await self.question(ctx, verbose="How many psychic type Pokémon have you caught?")
+		kwargs['pkmn_dark'] = await self.question(ctx, verbose="How many dark type Pokémon have you caught?")
+		kwargs['pkmn_fairy'] = await self.question(ctx, verbose="How many fairy type Pokémon have you caught?")
+		kwargs['pkmn_fighting'] = await self.question(ctx, verbose="How many fighting type Pokémon have you caught?")
+		kwargs['pkmn_ghost'] = await self.question(ctx, verbose="How many ghost type Pokémon have you caught?")
+		kwargs['pkmn_ice'] = await self.question(ctx, verbose="How many ice type Pokémon have you caught?")
+		kwargs['pkmn_dragon'] = await self.question(ctx, verbose="How many dragon type Pokémon have you caught?")
+		kwargs['gym_badges'] = await self.question(ctx, verbose="How many gym badges have you earned?")
 		
-		xp = question(ctx, verbose="What is your Total XP")
-		dex_caught = question(ctx, verbose="In your Pokédex, how many Pokémon have you caught?")
-		dex_seen = question(ctx, verbose="In your Pokédex, how many Pokémon have you seen?")
-		walk_dist = question(ctx, verbose="How much distance have you walked?")
-		gen_1_dex = question(ctx, verbose="How many Gen 1 Pokémon have you caught?")
-		pkmn_caught = question(ctx, verbose="How many Pokémon have you caught?")
-		pkmn_evolved = question(ctx, verbose="How many Pokémon have you evolved?")
-		pkstops_spun = question(ctx, verbose="How many Pokéstops have you spun?")
-		battles_won = question(ctx, verbose="How many gym battles have you won?")
-		gen_2_dex = question(ctx, verbose="How many Gen 2 Pokémon have you caught?")
-		berry_fed = question(ctx, verbose="How many berries have you fed?")
-		gym_defended = question(ctx, verbose="How many gyms have you defended?")
-		big_magikarp = question(ctx, verbose="How many big Magikarp have you caught?")
-		tiny_rattata = question(ctx, verbose="How many tiny Rattata have you caught?")
-		pikachu_caught = question(ctx, verbose="How many Pikachu have you caught?")
-		unown_alphabet = question(ctx, verbose="Out of 26, how many unown have you caught?")
-		raids_completed = question(ctx, verbose="How many raids have you completed?")
-		leg_raids_completed = question(ctx, verbose="How many legendary raids have you completed?")
-		gen_3_dex = question(ctx, verbose="How many Gen 3 Pokémon have you caught?")
-		pkmn_normal = question(ctx, verbose="How many normal type Pokémon have you caught?")
-		pkmn_flying = question(ctx, verbose="How many flying type Pokémon have you caught?")
-		pkmn_poison = question(ctx, verbose="How many poison type Pokémon have you caught?")
-		pkmn_ground = question(ctx, verbose="How many ground type Pokémon have you caught?")
-		pkmn_rock = question(ctx, verbose="How many rock type Pokémon have you caught?")
-		pkmn_bug = question(ctx, verbose="How many bug type Pokémon have you caught?")
-		pkmn_steel = question(ctx, verbose="How many steel type Pokémon have you caught?")
-		pkmn_fire = question(ctx, verbose="How many fire type Pokémon have you caught?")
-		pkmn_water = question(ctx, verbose="How many water type Pokémon have you caught?")
-		pkmn_grass = question(ctx, verbose="How many grass type Pokémon have you caught?")
-		pkmn_electric = question(ctx, verbose="How many electric type Pokémon have you caught?")
-		pkmn_psychic = question(ctx, verbose="How many psychic type Pokémon have you caught?")
-		pkmn_dark = question(ctx, verbose="How many dark type Pokémon have you caught?")
-		pkmn_fairy = question(ctx, verbose="How many fairy type Pokémon have you caught?")
-		pkmn_fighting = question(ctx, verbose="How many fighting type Pokémon have you caught?")
-		pkmn_ghost = question(ctx, verbose="How many ghost type Pokémon have you caught?")
-		pkmn_ice = question(ctx, verbose="How many ice type Pokémon have you caught?")
-		pkmn_dragon = question(ctx, verbose="How many dragon type Pokémon have you caught?")
-		gym_badges = question(ctx, verbose="How many gym badges have you earned?")
+		self.skip_all = False
 		
-		return
-		#trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
-		#embed = await self.updateCard(trainer)
-		#await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
+		update = self.client.create_update(trainer.id, xp, kwargs=kwargs)
+		await asyncio.sleep(1)
+		trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+		embed = await self.updateCard(trainer)
+		await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
 	
 	@update.command(name="name", pass_context=True)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
