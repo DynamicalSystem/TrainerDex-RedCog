@@ -348,6 +348,7 @@ class TrainerDex:
 		if xp:
 			if int(trainer.update.xp) >= int(xp):
 				await self.bot.send_message(ctx.message.author, "Error: You last set your XP to {xp:,}, please try a higher number. `ValidationError: {usr}, {xp}`".format(usr=trainer.username, xp=trainer.update.xp))
+				await self.bot.send_message(ctx.message.author, "Aborted, please trigger the command again and add one! butiamworkingonsomethingbetter")
 				return
 		else:
 			await self.bot.send_message(ctx.message.author, "Aborted!")
