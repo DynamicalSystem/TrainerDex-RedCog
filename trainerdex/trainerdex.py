@@ -341,6 +341,20 @@ class TrainerDex:
 		
 		xp = await self.question(ctx, verbose="What is your Total XP?")
 		
+		if xp:
+			if int(trainer.update.xp) >= int(xp):
+				await self.bot.send_message(ctx.message.author, "Error: You last set your XP to {xp:,}, please try a higher number. `ValidationError: {usr}, {xp}`".format(usr=trainer.username, xp=trainer.update.xp))
+				return
+		else:
+			await self.bot.send_message(ctx.message.author, "Aborted!")
+			if message:
+				await self.bot.delete_message(message)
+			try:
+				await self.bot.delete_message(ctx.message)
+			except discord.errors.Forbidden:
+				pass
+			return
+		
 		kwargs = {}
 		kwargs['dex_caught'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you caught?")
 		kwargs['dex_seen'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you seen?")
