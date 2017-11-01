@@ -62,7 +62,7 @@ class TrainerDex:
 			return None
 		
 		message = await self.bot.send_message(ctx.message.author, verbose)
-		answer = await self.bot.wait_for_message(timeout=30, author=ctx.message.author)
+		answer = await self.bot.wait_for_message(timeout=120, author=ctx.message.author)
 		if answer:
 			if 'stop' in answer.content.lower():
 				self.skip_all = True
@@ -77,7 +77,7 @@ class TrainerDex:
 				except ValueError:
 					return float(answer.content)
 		else:
-			await self.bot.edit_message(message, "You failed to answer in time, skipping this field.")
+			await self.bot.edit_message(message, "You failed to answer in time, skipping this field. Wanna try again? Say `cancel` and start again. I know.. I know.. I'm sorry.")
 	
 	async def get_trainer(self, username=None, discord=None, account=None, prefered=True, respect_privacy=True):
 		"""Returns a Trainer object for a given discord, trainer username or account id
