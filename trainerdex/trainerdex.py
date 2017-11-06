@@ -64,9 +64,9 @@ class TrainerDex:
 		message = await self.bot.send_message(ctx.message.author, verbose)
 		answer = await self.bot.wait_for_message(timeout=120, author=ctx.message.author)
 		if answer:
-			if 'stop' in answer.content.lower():
+			if ('stop' in answer.content.lower()) or ('skip all' in answer.content.lower()):
 				self.skip_all = True
-			elif 'pass' in answer.content.lower():
+			elif ('pass' in answer.content.lower()) or ('skip' in answer.content.lower()):
 				return None
 			elif 'cancel' in answer.content.lower():
 				self.skip_all = True
@@ -334,7 +334,7 @@ class TrainerDex:
 		else:
 			message=None
 		try:
-			pri_message = await self.bot.send_message(ctx.message.author, "This is really simple. Just answer the questions. Don't for commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)")
+			pri_message = await self.bot.send_message(ctx.message.author, "This is pretty simple. Just answer the questions. Don't use commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)\n *It's highly recommended to use two devices for this*")
 		except discord.errors.Forbidden:
 			await self.bot.edit_message(message, "This can get messy, taking this to DMs... or not. I can't message you. DM me first, bro!")
 			return
