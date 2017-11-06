@@ -372,7 +372,7 @@ class TrainerDex:
 		kwargs['gen_1_dex'] = await self.question(ctx, verbose="[Kanto] How many Gen 1 Pokémon have you caught?")
 		kwargs['pkmn_caught'] = await self.question(ctx, verbose="[Collector] How many Pokémon have you caught?")
 		kwargs['pkmn_evolved'] = await self.question(ctx, verbose="[Scientist] How many Pokémon have you evolved?")
-		kwagrs['eggs_hatched'] = await self.question(ctx, verbose="[Breeder] How many eggs have you hatched?")
+		kwargs['eggs_hatched'] = await self.question(ctx, verbose="[Breeder] How many eggs have you hatched?")
 		kwargs['pkstops_spun'] = await self.question(ctx, verbose="[Backpacker] How many Pokéstops have you spun?")
 		kwargs['big_magikarp'] = await self.question(ctx, verbose="[Fisherman] How many big Magikarp have you caught?")
 		kwargs['battles_won'] = await self.question(ctx, verbose="[Battle Girl] How many gym battles have you won?")
