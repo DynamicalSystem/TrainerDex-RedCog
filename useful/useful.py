@@ -1,3 +1,4 @@
+# coding=utf-8
 import random
 import humanize
 from datetime import datetime
