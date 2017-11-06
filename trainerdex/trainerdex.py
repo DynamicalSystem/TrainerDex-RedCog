@@ -75,7 +75,11 @@ class TrainerDex:
 				try:
 					return int(answer.content)
 				except ValueError:
-					return float(answer.content)
+					try:
+						return float(answer.content)
+					except ValueError:
+						retry = await self.question(ctx, verbose="There was something wrong with your answer. Let's try again, without commas or letters this time. \n"+verbose)
+						return retry
 		else:
 			await self.bot.edit_message(message, "You failed to answer in time, skipping this field. Wanna try again? Say `cancel` and start again. I know.. I know.. I'm sorry.")
 	
