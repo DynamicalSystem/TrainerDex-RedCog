@@ -110,7 +110,7 @@ class TrainerDex:
 	
 	async def getDiff(self, trainer, days: int):
 		updates = trainer.updates()
-		if trainer.start_date!=datetime.date(2016,7,13): 
+		if trainer.start_date: 
 			updates.append(StartDateUpdate(trainer))
 		updates.sort(key=lambda x: x.time_updated)
 		latest = trainer.update
