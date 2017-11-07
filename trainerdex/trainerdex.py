@@ -382,7 +382,7 @@ class TrainerDex:
 		kwargs['gen_2_dex'] = await self.question(ctx, verbose="[Johto] How many Gen 2 Pokémon have you caught?")
 		kwargs['unown_alphabet'] = await self.question(ctx, verbose="[Unown] How many different Unown forms have you caught?")
 		kwargs['berry_fed'] = await self.question(ctx, verbose="[Berry Master] How many berries have you fed to defending Pokémon?")
-		kwargs['gym_defended'] = await self.question(ctx, verbose="[Gym Leader] How many hours you defended gyms?")
+		kwargs['gym_defended'] = await self.question(ctx, verbose="[Gym Leader] How many hours have you defended gyms?")
 		kwargs['raids_completed'] = await self.question(ctx, verbose="[Champion] How many raids have you completed?")
 		kwargs['leg_raids_completed'] = await self.question(ctx, verbose="[Battle Legend] How many legendary raids have you completed?")
 		kwargs['gen_3_dex'] = await self.question(ctx, verbose="[Hoenn] How many Gen 3 Pokémon have you caught?")
