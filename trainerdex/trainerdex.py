@@ -1,4 +1,4 @@
-﻿# coding=utf-8
+# coding=utf-8
 import os
 import asyncio
 import datetime
@@ -54,7 +54,35 @@ class TrainerDex:
 		self.bot = bot
 		self.client = trainerdex.Client(token)
 		self.teams = self.client.get_teams()
+		self.skip_all = False
+		self.quit_func = False
 		
+	async def question(self, ctx, verbose):
+		if self.skip_all:
+			return None
+		
+		message = await self.bot.send_message(ctx.message.author, verbose)
+		answer = await self.bot.wait_for_message(timeout=120, author=ctx.message.author)
+		if answer:
+			if ('stop' in answer.content.lower()) or ('skip all' in answer.content.lower()):
+				self.skip_all = True
+			elif ('pass' in answer.content.lower()) or ('skip' in answer.content.lower()):
+				return None
+			elif 'cancel' in answer.content.lower():
+				self.skip_all = True
+				self.quit_func = True
+			else:
+				try:
+					return int(answer.content)
+				except ValueError:
+					try:
+						return float(answer.content)
+					except ValueError:
+						retry = await self.question(ctx, verbose="There was something wrong with your answer. Let's try again, without commas or letters this time. \n"+verbose)
+						return retry
+		else:
+			await self.bot.edit_message(message, "You failed to answer in time, skipping this field. Wanna try again? Say `cancel` and start again. I know.. I know.. I'm sorry.")
+	
 	async def get_trainer(self, username=None, discord=None, account=None, prefered=True, respect_privacy=True):
 		"""Returns a Trainer object for a given discord, trainer username or account id
 		
@@ -299,6 +327,107 @@ class TrainerDex:
 			trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
 			embed = await self.updateCard(trainer)
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
+			
+	@update.command(name="badges", pass_context=True)
+	async def advanced_update(self, ctx): 
+		"""Update your stats, if ran within x minutes of the bog standard xp command, it will modify that"""
+		
+		if ctx.message.channel.is_private==False:
+			message = await self.bot.say("This can get messy, taking this to DMs...")
+		else:
+			message=None
+		try:
+			pri_message = await self.bot.send_message(ctx.message.author, "This is pretty simple. Just answer the questions. Don't use commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)\n *It's highly recommended to use two devices for this*")
+		except discord.errors.Forbidden:
+			await self.bot.edit_message(message, "This can get messy, taking this to DMs... or not. I can't message you. DM me first, bro!")
+			return
+		trainer = await self.get_trainer(discord=ctx.message.author.id)
+		if trainer is None:
+			await self.bot.edit_message(message, "Cannot find {} in the database.".format(ctx.message.author.mention))
+			await self.bot.edit_message(pri_message, "Well, this is awkward. I can't find you in the database. Have you registered?")
+			await self.bot.send_message(ctx.message.author, "Message <@319792326958514176> or tweet @TrainerDex for support")
+			return
+		
+		self.skip_all = False
+		
+		xp = await self.question(ctx, verbose="What is your Total XP?")
+		
+		if xp:
+			if int(trainer.update.xp) >= int(xp):
+				await self.bot.send_message(ctx.message.author, "Error: You last set your XP to {xp:,}, please try a higher number. `ValidationError: {usr}, {xp}`".format(usr=trainer.username, xp=trainer.update.xp))
+				await self.bot.send_message(ctx.message.author, "Aborted, please trigger the command again and add one! butiamworkingonsomethingbetter")
+				return
+		else:
+			await self.bot.send_message(ctx.message.author, "Aborted!")
+			if message:
+				await self.bot.delete_message(message)
+			try:
+				await self.bot.delete_message(ctx.message)
+			except discord.errors.Forbidden:
+				pass
+			return
+		
+		kwargs = {}
+		kwargs['dex_caught'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you caught?")
+		kwargs['dex_seen'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you seen?")
+		kwargs['gym_badges'] = await self.question(ctx, verbose="How many gym badges have you earned? You can see this by going to your gym badges and tapping the map icon.")
+		kwargs['walk_dist'] = await self.question(ctx, verbose="[Jogger] How much distance have you walked?")
+		kwargs['gen_1_dex'] = await self.question(ctx, verbose="[Kanto] How many Gen 1 Pokémon have you caught?")
+		kwargs['pkmn_caught'] = await self.question(ctx, verbose="[Collector] How many Pokémon have you caught?")
+		kwargs['pkmn_evolved'] = await self.question(ctx, verbose="[Scientist] How many Pokémon have you evolved?")
+		kwargs['eggs_hatched'] = await self.question(ctx, verbose="[Breeder] How many eggs have you hatched?")
+		kwargs['pkstops_spun'] = await self.question(ctx, verbose="[Backpacker] How many Pokéstops have you spun?")
+		kwargs['big_magikarp'] = await self.question(ctx, verbose="[Fisherman] How many big Magikarp have you caught?")
+		kwargs['battles_won'] = await self.question(ctx, verbose="[Battle Girl] How many gym battles have you won?")
+		await self.bot.send_message(ctx.message.author, "[Ace Trainer] I would ask about the Ace Trainer medel here, but seeing as that's depricted, I'm undecided if I should bother.")
+		kwargs['tiny_rattata'] = await self.question(ctx, verbose="[Youngster] How many tiny Rattata have you caught?")
+		kwargs['pikachu_caught'] = await self.question(ctx, verbose="[Pikachu Fan] How many Pikachu have you caught?")
+		kwargs['gen_2_dex'] = await self.question(ctx, verbose="[Johto] How many Gen 2 Pokémon have you caught?")
+		kwargs['unown_alphabet'] = await self.question(ctx, verbose="[Unown] How many different Unown forms have you caught?")
+		kwargs['berry_fed'] = await self.question(ctx, verbose="[Berry Master] How many berries have you fed to defending Pokémon?")
+		kwargs['gym_defended'] = await self.question(ctx, verbose="[Gym Leader] How many hours have you defended gyms?")
+		kwargs['raids_completed'] = await self.question(ctx, verbose="[Champion] How many raids have you completed?")
+		kwargs['leg_raids_completed'] = await self.question(ctx, verbose="[Battle Legend] How many legendary raids have you completed?")
+		kwargs['gen_3_dex'] = await self.question(ctx, verbose="[Hoenn] How many Gen 3 Pokémon have you caught?")
+		kwargs['pkmn_normal'] = await self.question(ctx, verbose="How many [Normal] type Pokémon have you caught?")
+		kwargs['pkmn_fighting'] = await self.question(ctx, verbose="How many [Fighting] type Pokémon have you caught?")
+		kwargs['pkmn_flying'] = await self.question(ctx, verbose="How many [Flying] type Pokémon have you caught?")
+		kwargs['pkmn_poison'] = await self.question(ctx, verbose="How many [Poison] type Pokémon have you caught?")
+		kwargs['pkmn_ground'] = await self.question(ctx, verbose="How many [Ground] type Pokémon have you caught?")
+		kwargs['pkmn_rock'] = await self.question(ctx, verbose="How many [Rock] type Pokémon have you caught?")
+		kwargs['pkmn_bug'] = await self.question(ctx, verbose="How many [Bug] type Pokémon have you caught?")
+		kwargs['pkmn_ghost'] = await self.question(ctx, verbose="How many [Ghost] type Pokémon have you caught?")
+		kwargs['pkmn_steel'] = await self.question(ctx, verbose="How many [Steel] type Pokémon have you caught?")
+		kwargs['pkmn_fire'] = await self.question(ctx, verbose="How many [Fire] type Pokémon have you caught?")
+		kwargs['pkmn_water'] = await self.question(ctx, verbose="How many [Water] type Pokémon have you caught?")
+		kwargs['pkmn_grass'] = await self.question(ctx, verbose="How many [Grass] type Pokémon have you caught?")
+		kwargs['pkmn_electric'] = await self.question(ctx, verbose="How many [Electric] type Pokémon have you caught?")
+		kwargs['pkmn_psychic'] = await self.question(ctx, verbose="How many [Psychic] type Pokémon have you caught?")
+		kwargs['pkmn_ice'] = await self.question(ctx, verbose="How many [Ice] type Pokémon have you caught?")
+		kwargs['pkmn_dragon'] = await self.question(ctx, verbose="How many [Dragon] type Pokémon have you caught?")
+		kwargs['pkmn_dark'] = await self.question(ctx, verbose="How many [Dark] type Pokémon have you caught?")
+		kwargs['pkmn_fairy'] = await self.question(ctx, verbose="How many [Fairy] type Pokémon have you caught?")
+		
+		self.skip_all = False
+		if self.quit_func == True:
+			self.quit_func = False
+			await self.bot.send_message(ctx.message.author, "Aborted!")
+			if message:
+				await self.bot.delete_message(message)
+			try:
+				await self.bot.delete_message(ctx.message)
+			except discord.errors.Forbidden:
+				pass
+			return
+		pri_message = await self.bot.send_message(ctx.message.author, "Thank you, I'll just process that now...")
+		
+		update = self.client.create_update(trainer.id, xp, **kwargs)
+		await asyncio.sleep(1)
+		trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+		embed = await self.updateCard(trainer)
+		if message:
+			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
+		await self.bot.edit_message(pri_message, 'Success 👍', embed=embed)
 	
 	@update.command(name="name", pass_context=True)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
