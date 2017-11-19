@@ -506,9 +506,14 @@ class TrainerDex:
 	async def leaderboard(self, ctx):
 		"""View the leaderboard for your server"""
 		
+		role = discord.utils.find(lambda r: r.name == 'NoLB', ctx.message.server.roles)
+		member_list = list(ctx.message.server.members)
 		message = await self.bot.say("Thinking...")
 		await self.bot.send_typing(ctx.message.channel)
-		user_list = self.client.get_discord_server(ctx.message.server.id).get_users(ctx.message.server)
+		for mbr in member_list:
+			if role in mbr.roles:
+				member_list.remove(mbr)
+		user_list = self.client.get_users(member_list)
 		users = []
 		for user in user_list:
 			if user.trainer().statistics==True and user.trainer().cheater==False:
