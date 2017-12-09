@@ -1,0 +1,12 @@
+{
+    "AUTHOR" : "JayTurnr",
+    "DESCRIPTION" : "A raid enrollment system",
+    "NAME" : "TrainerDex Enrollment",
+    "REQUIREMENTS" : [
+        "monacle_scraper",
+    ],
+    "TAGS" : [
+        "pokemongo",
+        "pokemon"
+    ]
+}
