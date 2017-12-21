@@ -1,4 +1,4 @@
-trainerdex==1.4.3
+trainerdex==2.0.0
 requests
 maya
 pycent==1.0

@@ -1,19 +1,18 @@
-# coding=utf-8
-import os
 import asyncio
 import datetime
+import discord
 import humanize
 import maya
+import os
+import pycent
 import pytz
-import discord
 import random
 import requests
-import pycent
 import trainerdex
-from collections import namedtuple
-from discord.ext import commands
 from .utils import checks
 from .utils.dataIO import dataIO
+from collections import namedtuple
+from discord.ext import commands
 from pendulum.parsing.exceptions import ParserError
 
 
@@ -37,7 +36,7 @@ class StartDateUpdate:
 	def __init__(self, trainer):
 		self.raw = None
 		self.id = 0-trainer.id
-		self.time_updated = trainer.start_date
+		self.update_time = trainer.start_date
 		self.xp = 0
 	
 	@classmethod
@@ -53,91 +52,61 @@ class TrainerDex:
 	def __init__(self, bot):
 		self.bot = bot
 		self.client = trainerdex.Client(token)
-		self.teams = self.client.get_teams()
-		self.skip_all = False
-		self.quit_func = False
-		
-	async def question(self, ctx, verbose):
-		if self.skip_all:
-			return None
-		
-		message = await self.bot.send_message(ctx.message.author, verbose)
-		answer = await self.bot.wait_for_message(timeout=120, author=ctx.message.author)
-		if answer:
-			if ('stop' in answer.content.lower()) or ('skip all' in answer.content.lower()):
-				self.skip_all = True
-			elif ('pass' in answer.content.lower()) or ('skip' in answer.content.lower()):
-				return None
-			elif 'cancel' in answer.content.lower():
-				self.skip_all = True
-				self.quit_func = True
-			else:
-				try:
-					return int(answer.content)
-				except ValueError:
-					try:
-						return float(answer.content)
-					except ValueError:
-						retry = await self.question(ctx, verbose="There was something wrong with your answer. Let's try again, without commas or letters this time. \n"+verbose)
-						return retry
-		else:
-			await self.bot.edit_message(message, "You failed to answer in time, skipping this field. Wanna try again? Say `cancel` and start again. I know.. I know.. I'm sorry.")
 	
-	async def get_trainer(self, username=None, discord=None, account=None, prefered=True, respect_privacy=True):
+	async def get_trainer(self, username=None, discord=None, account=None, prefered=True):
 		"""Returns a Trainer object for a given discord, trainer username or account id
 		
 		Search is done in the order of username > discord > account, if you specify more than one, it will ONLY search the first one.
 		"""
 		
 		if username:
-			try:
-				return self.client.get_trainer_from_username(username, respect_privacy=respect_privacy)
-			except LookupError:
-				raise
+			return self.client.get_trainer_from_username(username)
 		elif discord and prefered==True:
-			return self.client.get_discord_user(discord).owner().trainer(all_=False)
+			for x in self.client.get_discord_user(uid=[discord])[0].owner().trainer():
+				if x.prefered:
+					return x
 		elif discord and prefered==False:
-			return self.client.get_discord_user(discord).owner().trainer(all_=True)
+			return self.client.get_discord_user(uid=[discord])[0].trainer()
 		elif account and prefered==True:
-			return self.client.get_user(account).trainer(all_=False)
+			for x in self.client.get_user(account)[0].owner().trainer():
+				if x.prefered:
+					return x
 		elif account and prefered==False:
-			return self.client.get_user(account).trainer(all_=True)
+			return self.client.get_user(account).trainer()
 		
 	async def getTeamByName(self, team: str):
-		for item in self.teams:
-			if item.name.title()==team.title():
-				return item
+		return {'teamless':trainerdex.get_team(0),'mystic':trainerdex.get_team(1),'valor':trainerdex.get_team(2),'instinct':trainerdex.get_team(3)}[team.lower()]
 	
 	async def getDiff(self, trainer, days: int):
 		updates = trainer.updates()
 		if trainer.start_date: 
 			updates.append(StartDateUpdate(trainer))
-		updates.sort(key=lambda x: x.time_updated)
+		updates.sort(key=lambda x: x.update_time)
 		latest = trainer.update
-		first = updates[1]
-		reference = [x for x in updates if x.time_updated <= (datetime.datetime.now(pytz.utc)-datetime.timedelta(days=days)+datetime.timedelta(hours=6))]
-		reference.sort(key=lambda x: x.time_updated, reverse=True)
+		first = updates[-1]
+		reference = [x for x in updates if x.update_time <= (datetime.datetime.now(pytz.utc)-datetime.timedelta(days=days)+datetime.timedelta(hours=6))]
+		reference.sort(key=lambda x: x.update_time, reverse=True)
 		if reference==[]:
 			if latest==first:
 				diff = Difference(
 					old_date = None,
 					old_xp = None,
-					new_date = latest.time_updated,
+					new_date = latest.update_time,
 					new_xp = latest.xp,
 					change_time = None,
 					change_xp = None
 				)
 				return diff
-			elif first.time_updated > (latest.time_updated-datetime.timedelta(days=days)+datetime.timedelta(hours=3)):
+			elif first.update_time > (latest.update_time-datetime.timedelta(days=days)+datetime.timedelta(hours=3)):
 				reference=first
 		else:
 			reference = reference[0]
 		diff = Difference(
-				old_date = reference.time_updated,
+				old_date = reference.update_time,
 				old_xp = reference.xp,
-				new_date = latest.time_updated,
+				new_date = latest.update_time,
 				new_xp = latest.xp,
-				change_time = latest.time_updated-reference.time_updated,
+				change_time = latest.update_time-reference.update_time,
 				change_xp = latest.xp-reference.xp
 			)
 		
@@ -166,8 +135,6 @@ class TrainerDex:
 				embed.add_field(name='Daily completion', value='{}% towards {:,}'.format(pycent.percentage(dailyDiff.change_xp/max(1,dailyDiff.change_time.days), dailyGoal), dailyGoal))
 		if trainer.goal_total and trainer.goal_total!=0:
 			totalGoal = trainer.goal_total
-		elif level.level < 40:
-			totalGoal = trainerdex.Level.from_level(level.level+1).total_xp
 		else:
 			totalGoal = None
 		if totalGoal:
@@ -186,83 +153,62 @@ class TrainerDex:
 	
 	async def profileCard(self, name: str, force=False):
 		try:
-			trainer = await self.get_trainer(username=name, respect_privacy=False)
+			trainer = await self.get_trainer(username=name)
 		except LookupError:
 			raise
+		if not trainer:
+			raise LookupError("Trainer not found")
 		account = trainer.owner()
-		discordUser = account.discord()
+		discordUser = account.discord()[0]
 		level=trainer.level
 		
-		embed=discord.Embed(timestamp=trainer.update.time_updated, colour=int(trainer.team().colour.replace("#", ""), 16))
+		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16))
 		try:
 			embed.set_author(name=trainer.username, icon_url=discordUser.avatar_url)
 		except:
 			embed.set_author(name=trainer.username)
-		if account and (account.first_name or account.last_name) and (trainer.statistics is True or force is True) and trainer.cheater is False:
+		if account and (account.first_name or account.last_name) and trainer.cheater is False:
 			embed.add_field(name='Name', value=account.first_name+' '+account.last_name)
 		embed.add_field(name='Team', value=trainer.team().name)
 		embed.add_field(name='Level', value=level.level)
-		if trainer.statistics is True or force is True:
-			if level.level != 40:
-				embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
-			else:
-				embed.add_field(name='Total XP', value='{}'.format(humanize.intword(trainer.update.xp)))
-			if discordUser:
-				embed.add_field(name='Discord', value='<@{}>'.format(discordUser.id))
-		if trainer.cheater is True or trainer.statistics is False:
-			desc = '{0} '
-			desc_also = False
-			if trainer.statistics is False:
-				desc += "has chosen to opt out of statistics, and the trainer profile system"
-				if force is True:
-					desc += ", however, you can see this information anyway. This is most likely because you are {1}."
-				desc_also = True
-			if trainer.cheater is True:
-				if desc_also is True:
-					desc += "Additionally, {0} "
-					desc_also = False
-				desc += "has been known to cheat."
-				desc_also = True
+		if level.level != 40:
+			embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
+		else:
+			embed.add_field(name='Total XP', value='{}'.format(humanize.intword(trainer.update.xp)))
+		if discordUser:
+			embed.add_field(name='Discord', value='<@{}>'.format(discordUser.id))
+		if trainer.cheater is True:
+			desc = "{} has been known to cheat."
 			embed.description = desc.format(trainer.username)
 		embed.set_footer(text="Total XP: {:,}".format(trainer.update.xp))
 		return embed
 	
 	async def _addProfile(self, message, mention, username: str, xp: int, team, has_cheated=False, currently_cheats=False, name: str=None, prefered=True):
 		#Check existance
-		try:
-			print('Attempting to add {} to database, checking if they already exist'.format(username))
-			await self.get_trainer(username=username, prefered=prefered)
-		except LookupError:
-			pass
-		else:
+		print('Attempting to add {} to database, checking if they already exist'.format(username))
+		trainer = await self.get_trainer(username=username)
+		if trainer:
 			print('Found {}, aborting...'.format(username))
 			await self.bot.edit_message(message, "A record already exists in the database for this trainer. Aborted.")
 			return
 		#Create or get auth.User and discord user
-		discordUser=None
-		if mention.avatar_url=='' or mention.avatar_url is None:
-			avatarUrl = mention.default_avatar_url
-		else:
-			avatarUrl = mention.avatar_url
-		try:
-			print('Checking if existing Discord User {} exists in our database...'.format(mention.id))
-			discordUser=self.client.get_discord_user(mention.id)
-		except requests.exceptions.HTTPError as e:
-			print(e)
-			user = self.client.create_user(username='_'+username, first_name=name)
-			discordUser = self.client.import_discord_user(name=mention.name, discriminator=mention.discriminator, id_=mention.id, avatar_url=avatarUrl, creation=mention.created_at, user=user.id)
-		else:
+		print('Checking if existing Discord User {} exists in our database...'.format(mention.id))
+		discordUserlist=self.client.get_discord_user(uid=[mention.id])
+		if discordUserlist:
 			print('Found... Using that.')
+			discordUser = discordUserlist[0]
 			user = discordUser.owner()
-		finally:
-			#create or update trainer
-			print('Creating trainer...')
-			trainer = self.client.create_trainer(username=username, team=team.id, has_cheated=has_cheated, currently_cheats=currently_cheats, prefered=prefered, account=user.id)
-			print('Trainer created. Creating update object...')
-			#create update object
-			update = self.client.create_update(trainer.id, xp)
-			print('Update object created')
-			return trainer
+		else:
+			user = self.client.create_user(username='_'+username, first_name=name)
+			discordUser = self.client.import_discord_user(uid=mention.id, user=user.id)
+		#create trainer
+		print('Creating trainer...')
+		trainer = self.client.create_trainer(username=username, team=team.id, has_cheated=has_cheated, currently_cheats=currently_cheats, prefered=prefered, account=user.id)
+		print('Trainer created. Creating update object...')
+		#create update object
+		update = self.client.create_update(trainer.id, xp)
+		print('Update object created')
+		return trainer
 	
 	#Public Commands
 	
@@ -279,7 +225,7 @@ class TrainerDex:
 			embed = await self.profileCard(trainer)
 			await self.bot.edit_message(message, new_content='I found this one...', embed=embed)
 		except LookupError as e:
-			await self.bot.say('`Error: '+str(e)+'`')
+			await self.bot.edit_message(message, '`Error: '+str(e)+'`')
 	
 	@commands.command(pass_context=True)
 	async def progress(self, ctx, trainer=None):
@@ -293,9 +239,10 @@ class TrainerDex:
 		message = await self.bot.say('Thinking...')
 		await self.bot.send_typing(ctx.message.channel)
 		
-		embed = await self.updateCard(trainer)
-		await self.bot.edit_message(message, new_content='Here we go...', embed=embed)
-		
+		if trainer:
+			embed = await self.updateCard(trainer)
+			await self.bot.edit_message(message, new_content='Here we go...', embed=embed)
+		await self.bot.edit_message(message, '`Error: Trainer not found`')
 	
 	@commands.group(pass_context=True)
 	async def update(self, ctx):
@@ -314,120 +261,30 @@ class TrainerDex:
 		message = await self.bot.say('Processing...')
 		await self.bot.send_typing(ctx.message.channel)
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
-		if trainer is not None:
+		if trainer:
 			if int(trainer.update.xp) >= int(xp):
 				await self.bot.edit_message(message, "Error: You last set your XP to {xp:,}, please try a higher number. `ValidationError: {usr}, {xp}`".format(usr= trainer.username, xp=trainer.update.xp))
 				return
 			if trainer.goal_total:
 				if trainer.goal_total<=xp and trainer.goal_total != 0:
-					await self.bot.say(random.choice(levelup).format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention))
-					self.client.update_trainer(trainer, total_goal=0)
+					message_text = random.choice(levelup)
+					current_level = trainerdex.level_parser(xp=xp).level
+					next_level = trainerdex.level_parser(level=current_level+1)
+					self.client.update_trainer(trainer, total_goal=0) if current_level == 40 else self.client.update_trainer(trainer, total_goal=next_level.total_xp)
+					if current_level != 40:
+						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach level {next_level}."
+					await self.bot.say(message_text.format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention, next_level=next_level.level, goal_needed=next_level.total_xp))
 			update = self.client.create_update(trainer.id, xp)
 			await asyncio.sleep(1)
 			trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
 			embed = await self.updateCard(trainer)
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
-			
+		else:
+			await self.bot.edit_message(message, '`Error: Trainer not found`')
 	@update.command(name="badges", pass_context=True)
-	async def advanced_update(self, ctx): 
-		"""Update your stats, if ran within x minutes of the bog standard xp command, it will modify that"""
+	async def advanced_update(self, ctx):
 		
-		if ctx.message.channel.is_private==False:
-			message = await self.bot.say("This can get messy, taking this to DMs...")
-		else:
-			message=None
-		try:
-			pri_message = await self.bot.send_message(ctx.message.author, "This is pretty simple. Just answer the questions. Don't use commas in your numbers. The distance is the only question which should take a decimal point. To skip a question, answer `skip`. To skip the rest of the questions, answer `stop`. To quit, say `cancel` :)\n *It's highly recommended to use two devices for this*")
-		except discord.errors.Forbidden:
-			await self.bot.edit_message(message, "This can get messy, taking this to DMs... or not. I can't message you. DM me first, bro!")
-			return
-		trainer = await self.get_trainer(discord=ctx.message.author.id)
-		if trainer is None:
-			await self.bot.edit_message(message, "Cannot find {} in the database.".format(ctx.message.author.mention))
-			await self.bot.edit_message(pri_message, "Well, this is awkward. I can't find you in the database. Have you registered?")
-			await self.bot.send_message(ctx.message.author, "Message <@319792326958514176> or tweet @TrainerDex for support")
-			return
-		
-		self.skip_all = False
-		
-		xp = await self.question(ctx, verbose="What is your Total XP?")
-		
-		if xp:
-			if int(trainer.update.xp) >= int(xp):
-				await self.bot.send_message(ctx.message.author, "Error: You last set your XP to {xp:,}, please try a higher number. `ValidationError: {usr}, {xp}`".format(usr=trainer.username, xp=trainer.update.xp))
-				await self.bot.send_message(ctx.message.author, "Aborted, please trigger the command again and add one! butiamworkingonsomethingbetter")
-				return
-		else:
-			await self.bot.send_message(ctx.message.author, "Aborted!")
-			if message:
-				await self.bot.delete_message(message)
-			try:
-				await self.bot.delete_message(ctx.message)
-			except discord.errors.Forbidden:
-				pass
-			return
-		
-		kwargs = {}
-		kwargs['dex_caught'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you caught?")
-		kwargs['dex_seen'] = await self.question(ctx, verbose="In your Pokédex, how many Pokémon have you seen?")
-		kwargs['gym_badges'] = await self.question(ctx, verbose="How many gym badges have you earned? You can see this by going to your gym badges and tapping the map icon.")
-		kwargs['walk_dist'] = await self.question(ctx, verbose="[Jogger] How much distance have you walked?")
-		kwargs['gen_1_dex'] = await self.question(ctx, verbose="[Kanto] How many Gen 1 Pokémon have you caught?")
-		kwargs['pkmn_caught'] = await self.question(ctx, verbose="[Collector] How many Pokémon have you caught?")
-		kwargs['pkmn_evolved'] = await self.question(ctx, verbose="[Scientist] How many Pokémon have you evolved?")
-		kwargs['eggs_hatched'] = await self.question(ctx, verbose="[Breeder] How many eggs have you hatched?")
-		kwargs['pkstops_spun'] = await self.question(ctx, verbose="[Backpacker] How many Pokéstops have you spun?")
-		kwargs['big_magikarp'] = await self.question(ctx, verbose="[Fisherman] How many big Magikarp have you caught?")
-		kwargs['battles_won'] = await self.question(ctx, verbose="[Battle Girl] How many gym battles have you won?")
-		await self.bot.send_message(ctx.message.author, "[Ace Trainer] I would ask about the Ace Trainer medel here, but seeing as that's depricted, I'm undecided if I should bother.")
-		kwargs['tiny_rattata'] = await self.question(ctx, verbose="[Youngster] How many tiny Rattata have you caught?")
-		kwargs['pikachu_caught'] = await self.question(ctx, verbose="[Pikachu Fan] How many Pikachu have you caught?")
-		kwargs['gen_2_dex'] = await self.question(ctx, verbose="[Johto] How many Gen 2 Pokémon have you caught?")
-		kwargs['unown_alphabet'] = await self.question(ctx, verbose="[Unown] How many different Unown forms have you caught?")
-		kwargs['berry_fed'] = await self.question(ctx, verbose="[Berry Master] How many berries have you fed to defending Pokémon?")
-		kwargs['gym_defended'] = await self.question(ctx, verbose="[Gym Leader] How many hours have you defended gyms?")
-		kwargs['raids_completed'] = await self.question(ctx, verbose="[Champion] How many raids have you completed?")
-		kwargs['leg_raids_completed'] = await self.question(ctx, verbose="[Battle Legend] How many legendary raids have you completed?")
-		kwargs['gen_3_dex'] = await self.question(ctx, verbose="[Hoenn] How many Gen 3 Pokémon have you caught?")
-		kwargs['pkmn_normal'] = await self.question(ctx, verbose="How many [Normal] type Pokémon have you caught?")
-		kwargs['pkmn_fighting'] = await self.question(ctx, verbose="How many [Fighting] type Pokémon have you caught?")
-		kwargs['pkmn_flying'] = await self.question(ctx, verbose="How many [Flying] type Pokémon have you caught?")
-		kwargs['pkmn_poison'] = await self.question(ctx, verbose="How many [Poison] type Pokémon have you caught?")
-		kwargs['pkmn_ground'] = await self.question(ctx, verbose="How many [Ground] type Pokémon have you caught?")
-		kwargs['pkmn_rock'] = await self.question(ctx, verbose="How many [Rock] type Pokémon have you caught?")
-		kwargs['pkmn_bug'] = await self.question(ctx, verbose="How many [Bug] type Pokémon have you caught?")
-		kwargs['pkmn_ghost'] = await self.question(ctx, verbose="How many [Ghost] type Pokémon have you caught?")
-		kwargs['pkmn_steel'] = await self.question(ctx, verbose="How many [Steel] type Pokémon have you caught?")
-		kwargs['pkmn_fire'] = await self.question(ctx, verbose="How many [Fire] type Pokémon have you caught?")
-		kwargs['pkmn_water'] = await self.question(ctx, verbose="How many [Water] type Pokémon have you caught?")
-		kwargs['pkmn_grass'] = await self.question(ctx, verbose="How many [Grass] type Pokémon have you caught?")
-		kwargs['pkmn_electric'] = await self.question(ctx, verbose="How many [Electric] type Pokémon have you caught?")
-		kwargs['pkmn_psychic'] = await self.question(ctx, verbose="How many [Psychic] type Pokémon have you caught?")
-		kwargs['pkmn_ice'] = await self.question(ctx, verbose="How many [Ice] type Pokémon have you caught?")
-		kwargs['pkmn_dragon'] = await self.question(ctx, verbose="How many [Dragon] type Pokémon have you caught?")
-		kwargs['pkmn_dark'] = await self.question(ctx, verbose="How many [Dark] type Pokémon have you caught?")
-		kwargs['pkmn_fairy'] = await self.question(ctx, verbose="How many [Fairy] type Pokémon have you caught?")
-		
-		self.skip_all = False
-		if self.quit_func == True:
-			self.quit_func = False
-			await self.bot.send_message(ctx.message.author, "Aborted!")
-			if message:
-				await self.bot.delete_message(message)
-			try:
-				await self.bot.delete_message(ctx.message)
-			except discord.errors.Forbidden:
-				pass
-			return
-		pri_message = await self.bot.send_message(ctx.message.author, "Thank you, I'll just process that now...")
-		
-		update = self.client.create_update(trainer.id, xp, **kwargs)
-		await asyncio.sleep(1)
-		trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
-		embed = await self.updateCard(trainer)
-		if message:
-			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
-		await self.bot.edit_message(pri_message, 'Success 👍', embed=embed)
+		await self.bot.say("We now have a tool that's better than this tool was. Go to https://www.trainerdex.co.uk/tools/update_stats/")
 	
 	@update.command(name="name", pass_context=True)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
@@ -443,7 +300,7 @@ class TrainerDex:
 		message = await self.bot.say('Processing...')
 		await self.bot.send_typing(ctx.message.channel)
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
-		account = trainer.account()
+		account = trainer.owner()
 		if last_name=='..':
 			last_name=' '
 		if account:
@@ -477,8 +334,11 @@ class TrainerDex:
 			message = await self.bot.say("It seems you didn't agree that the date was the correct date. Not setting date.")
 			return
 		else:
+			if suspected_time < date(2016, 7, 6):
+				message = await self.bot.say("The date you entered was before launch date of 6th July 2016. Sorry, but you can't do that.")
+				return
 			self.client.update_trainer(trainer, start_date=suspected_time.datetime(to_timezone='UTC'))
-			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, suspected_time.slang_date()))
+			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, suspected_time))
 	
 	@update.command(name="goal", pass_context=True)
 	async def goal(self, ctx, which: str, goal: int):
@@ -506,33 +366,42 @@ class TrainerDex:
 	async def leaderboard(self, ctx):
 		"""View the leaderboard for your server"""
 		
-		role = discord.utils.find(lambda r: r.name == 'NoLB', ctx.message.server.roles)
-		member_list = list(ctx.message.server.members)
 		message = await self.bot.say("Thinking...")
 		await self.bot.send_typing(ctx.message.channel)
+		role = discord.utils.find(lambda r: r.name == 'NoLB', ctx.message.server.roles)
+		member_list = list(ctx.message.server.members)
 		for mbr in member_list:
 			if role in mbr.roles:
 				member_list.remove(mbr)
-		user_list = self.client.get_users(member_list)
-		users = []
-		for user in user_list:
-			if user.trainer().statistics==True and user.trainer().cheater==False:
-				users.append(user)
-		users.sort(key=lambda x:x.trainer().update.xp, reverse=True)
+		user_list = self.client.discord_to_users(member_list)
+		trainer_list = []
+		for x in user_list:
+			for y in x.profiles:
+				trainer_list.append(y)
+		leaderboard_json = self.client.leaderboard(trainer_list)
+		leaderboard_json.sort(key=lambda x: x['position'])
 		embed=discord.Embed(title="Leaderboard")
+		subset = []
 		if len(ctx.message.mentions) >= 1:
-			for _, mbr in zip(range(25), ctx.message.mentions):
-				try:
-					i = users.index(self.client.get_discord_user(mbr.id).owner())
-				except requests.exceptions.HTTPError as e:
-					await self.bot.say('Could not be magic with {}: `{}`'.format(mbr.mention, e))
-				else:
-					trainer = users[i].trainer()
-					embed.add_field(name='{}. {} {} {}'.format(i+1, trainer.username, trainer.level.level, trainer.team().name), value="{:,}".format(trainer.update.xp))
+			subset_objs = self.client.discord_to_users(ctx.message.mentions)
+			for x in subset_objs:
+				subset.append(x.id)
+		if subset and 25 > len(subset) > 1:
+				for x in leaderboard_json:
+					if x['user_id'] in subset:
+						embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
+		elif subset and len(subset) == 1:
+			for item in leaderboard_json:
+				if item['user_id'] in subset:
+					yourself = item
+			for x in range(yourself['position']-5,yourself['position']+4):
+				if x in range(1,len(leaderboard_json)+1):
+					x = leaderboard_json[x]
+					embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
 		else:
-			for i in range(min(25, len(users))):
-				trainer = users[i].trainer()
-				embed.add_field(name='{}. {} {} {}'.format(i+1, trainer.username, trainer.level.level, trainer.team().name), value="{:,}".format(trainer.update.xp))
+			for i in range(min(25, len(leaderboard_json)+1)):
+				x = leaderboard_json[i]
+				embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
 		await self.bot.edit_message(message, new_content=str(datetime.date.today()), embed=embed)
 	
 	@commands.command(pass_context=True, no_pm=True)
@@ -543,12 +412,6 @@ class TrainerDex:
 		await self.bot.say(msg)
 	
 	#Mod-commands
-	
-	@commands.command(pass_context=True, enabled=False, no_pm=True)
-	@checks.mod_or_permissions(assign_roles=True)
-	async def spoofer(self, ctx):
-		"""Set a user as a spoofer"""
-		pass
 	
 	@commands.command(name="addprofile", no_pm=True, pass_context=True, alias="newprofile")
 	@checks.mod_or_permissions(assign_roles=True)
@@ -564,7 +427,7 @@ class TrainerDex:
 		message = await self.bot.say('Processing...')
 		await self.bot.send_typing(ctx.message.channel)
 		mbr = ctx.message.mentions[0]
-		xp = trainerdex.Level.from_level(level).total_xp + xp
+		xp = trainerdex.level_parser(level=level).total_xp + xp
 		team = await self.getTeamByName(team)
 		if team is None:
 			await self.bot.edit_message(message, "That isn't a valid team. Please ensure that you have used the command correctly.")
@@ -573,35 +436,6 @@ class TrainerDex:
 			await self._addProfile(message, mbr, name, xp, team, has_cheated=True, currently_cheats=True)
 		else:
 			await self._addProfile(message, mbr, name, xp, team)
-		try:
-			embed = await self.profileCard(name)
-			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
-		except LookupError as e:
-			await self.bot.edit_message(message, '`Error: '+str(e)+'`')
-	
-	@commands.command(pass_context=True, no_pm=True)
-	@checks.mod_or_permissions(assign_roles=True)
-	async def addsecondary(self, ctx, mention, name: str, team: str, level: int, xp: int, opt: str=''):
-		"""Add a user to the Trainer Dex database as a secondary profile
-		
-		Optional arguments:
-		spoofer - sets the user as a spoofer
-		
-		Example: addsecondary @JayTurnr#1234 JayTurnr Valor 34 1234567 spoofer
-		"""
-		
-		message = await self.bot.say('Processing...')
-		await self.bot.send_typing(ctx.message.channel)
-		mbr = ctx.message.mentions[0]
-		xp = trainerdex.Level.from_level(level).total_xp + xp
-		team = await self.getTeamByName(team)
-		if team is None:
-			await self.bot.edit_message(message, "That isn't a valid team. Please ensure that you have used the command correctly.")
-			return
-		if opt.title() == 'Spoofer':
-			await self._addProfile(message, mbr, name, xp, team, has_cheated=True, currently_cheats=True, prefered=False)
-		else:
-			await self._addProfile(message, mbr, name, xp, team, prefered=False)
 		try:
 			embed = await self.profileCard(name)
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
@@ -624,7 +458,7 @@ class TrainerDex:
 		
 		message = await self.bot.say('Processing step 1 of 2...')
 		await self.bot.send_typing(ctx.message.channel)
-		xp = trainerdex.Level.from_level(level).total_xp + xp
+		xp = trainerdex.level_parser(level=level).total_xp + xp
 		team = await self.getTeamByName(team)
 		if team is None:
 			await self.bot.edit_message(message, "That isn't a valid team. Please ensure that you have used the command correctly.")
@@ -681,41 +515,6 @@ class TrainerDex:
 			settings['token'] = token
 			dataIO.save_json(settings_file, settings)
 			await self.bot.edit_message(message, '```API token set - please restart cog```')
-	
-	@tdset.command(pass_context=True, no_pm=True)
-	@checks.is_owner()
-	async def register_server(self, ctx, cheaters, minors):
-		"""Register Server to database, required before leaderboards can work
-		
-		arguments:
-		cheaters - allowed, ban, segregate
-		minors - allowed, ban, segregate
-		"""
-		
-		message = await self.bot.say('Processing...')
-		await self.bot.send_typing(ctx.message.channel)
-		if cheaters == 'allowed':
-			c1=False
-			c2=False
-		elif cheaters == 'ban':
-			c1=True
-			c2=False
-		elif cheaters in ('segregate','seg'):
-			c1=False
-			c2=True
-		if minors == 'allowed':
-			m1=False
-			m2=False
-		elif minors == 'ban':
-			m1=True
-			m2=False
-		elif minors in ('segregate','seg'):
-			m1=False
-			m2=True
-		print('{}{}{}{}'.format(c1,c2,m1,m2))
-		svr = ctx.message.server
-		server = self.client.import_discord_server(svr.name, str(svr.region), svr.id, owner=svr.owner.id, bans_cheaters=c1, seg_cheaters=c2, bans_minors=m1, seg_minors=m2)
-		await self.bot.edit_message(message, 'Server #{s.id} {s.name} succesfully added.'.format(server))
 
 def check_folders():
 	if not os.path.exists("data/trainerdex"):
