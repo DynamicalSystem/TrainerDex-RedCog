@@ -334,7 +334,7 @@ class TrainerDex:
 			message = await self.bot.say("It seems you didn't agree that the date was the correct date. Not setting date.")
 			return
 		else:
-			if suspected_time.datetime(naive=True).date() < date(2016, 7, 6):
+			if suspected_time.datetime(naive=True).date() < datetime.date(2016, 7, 6):
 				message = await self.bot.say("The date you entered was before launch date of 6th July 2016. Sorry, but you can't do that.")
 				return
 			self.client.update_trainer(trainer, start_date=suspected_time.datetime(to_timezone='UTC'))
