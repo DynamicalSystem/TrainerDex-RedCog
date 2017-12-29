@@ -162,13 +162,8 @@ class TrainerDex:
 		discordUser = account.discord()[0]
 		level=trainer.level
 		
-		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16))
-		try:
-			embed.set_author(name=trainer.username, icon_url=discordUser.avatar_url)
-		except:
-			embed.set_author(name=trainer.username)
-		if account and (account.first_name or account.last_name) and trainer.cheater is False:
-			embed.add_field(name='Name', value=account.first_name+' '+account.last_name)
+		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(traner.id))
+		embed.set_author(name=trainer.username)
 		embed.add_field(name='Team', value=trainer.team().name)
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
@@ -334,7 +329,7 @@ class TrainerDex:
 			message = await self.bot.say("It seems you didn't agree that the date was the correct date. Not setting date.")
 			return
 		else:
-			if suspected_time.datetime(naive=True).date() < date(2016, 7, 6):
+			if suspected_time.datetime(naive=True).date() < datetime.date(2016, 7, 6):
 				message = await self.bot.say("The date you entered was before launch date of 6th July 2016. Sorry, but you can't do that.")
 				return
 			self.client.update_trainer(trainer, start_date=suspected_time.datetime(to_timezone='UTC'))
