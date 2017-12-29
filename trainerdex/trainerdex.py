@@ -234,7 +234,8 @@ class TrainerDex:
 		if trainer:
 			embed = await self.updateCard(trainer)
 			await self.bot.edit_message(message, new_content='Here we go...', embed=embed)
-		await self.bot.edit_message(message, '`Error: Trainer not found`')
+		else:
+			await self.bot.edit_message(message, '`Error: Trainer not found`')
 	
 	@commands.group(pass_context=True)
 	async def update(self, ctx):
