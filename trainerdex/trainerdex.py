@@ -163,12 +163,7 @@ class TrainerDex:
 		level=trainer.level
 		
 		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16))
-		try:
-			embed.set_author(name=trainer.username, icon_url=discordUser.avatar_url)
-		except:
-			embed.set_author(name=trainer.username)
-		if account and (account.first_name or account.last_name) and trainer.cheater is False:
-			embed.add_field(name='Name', value=account.first_name+' '+account.last_name)
+		embed.set_author(name=trainer.username)
 		embed.add_field(name='Team', value=trainer.team().name)
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
