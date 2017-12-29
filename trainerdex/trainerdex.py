@@ -162,7 +162,7 @@ class TrainerDex:
 		discordUser = account.discord()[0]
 		level=trainer.level
 		
-		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16))
+		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(traner.id))
 		embed.set_author(name=trainer.username)
 		embed.add_field(name='Team', value=trainer.team().name)
 		embed.add_field(name='Level', value=level.level)
