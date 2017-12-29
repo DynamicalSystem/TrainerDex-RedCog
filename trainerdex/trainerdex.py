@@ -115,11 +115,8 @@ class TrainerDex:
 	async def updateCard(self, trainer):
 		dailyDiff = await self.getDiff(trainer, 1)
 		level=trainer.level
-		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16))
-		try:
-			embed.set_author(name=trainer.username, icon_url=trainer.account().discord().avatar_url)
-		except:
-			embed.set_author(name=trainer.username)
+		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id))
+		embed.set_author(name=trainer.username)
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
 			embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
