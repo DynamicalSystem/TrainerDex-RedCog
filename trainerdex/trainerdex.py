@@ -339,7 +339,7 @@ class TrainerDex:
 			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, suspected_time))
 	
 	@update.command(name="goal", pass_context=True)
-	async def goal(self, ctx, which: str, goal: int):
+	async def goal(self, ctx, which: str, goal):
 		"""Update your goals
 		
 		Example: update goal daily 2000
@@ -352,7 +352,18 @@ class TrainerDex:
 			self.client.update_trainer(trainer, daily_goal=goal)
 			await self.bot.edit_message(message, "{}, your daily goal has been set to {:,}".format(ctx.message.author.mention, goal))
 		elif which.title()=='Total':
-			if goal>trainer.update.xp or goal==0:
+			if goal = 'auto':
+				current_level = trainer.level.level
+				if current_level != 40:
+					next_level = trainerdex.level_parser(level=current_level+1)
+					goal_needed = next_level.total_xp
+					self.client.update_trainer(trainer, total_goal=goal_needed)
+					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}.".format(goal_needed=goal_needed, nlevel=next_level.level))
+				else:
+					goal_needed = trainer.update.xp + (20000000 - trainer.update.xp % 20000000)
+					self.client.update_trainer(trainer, total_goal=goal_needed)
+					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x{multiplier}".format(goal_needed=goal_needed, multiplier=int(goal_needed/20000000)))
+			elif goal>trainer.update.xp or goal==0:
 				self.client.update_trainer(trainer, total_goal=goal)
 				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, goal))
 			else:
