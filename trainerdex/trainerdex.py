@@ -350,7 +350,9 @@ class TrainerDex:
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
 		if which.title()=='Daily':
 			self.client.update_trainer(trainer, daily_goal=goal)
-			await self.bot.edit_message(message, "{}, your daily goal has been set to {:,}".format(ctx.message.author.mention, goal))
+			trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+			embed = await self.updateCard(trainer)
+			await self.bot.edit_message(message, "{}, your daily goal has been set to {:,}".format(ctx.message.author.mention, goal), embed=embed)
 		elif which.title()=='Total':
 			if goal = 'auto':
 				current_level = trainer.level.level
@@ -358,11 +360,15 @@ class TrainerDex:
 					next_level = trainerdex.level_parser(level=current_level+1)
 					goal_needed = next_level.total_xp
 					self.client.update_trainer(trainer, total_goal=goal_needed)
-					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}.".format(goal_needed=goal_needed, nlevel=next_level.level))
+					trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+					embed = await self.updateCard(trainer)
+					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}.".format(goal_needed=goal_needed, nlevel=next_level.level), embed=embed)
 				else:
 					goal_needed = trainer.update.xp + (20000000 - trainer.update.xp % 20000000)
 					self.client.update_trainer(trainer, total_goal=goal_needed)
-					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x{multiplier}".format(goal_needed=goal_needed, multiplier=int(goal_needed/20000000)))
+					trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+					embed = await self.updateCard(trainer)
+					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x{multiplier}".format(goal_needed=goal_needed, multiplier=int(goal_needed/20000000)), embed=embed)
 			elif goal>trainer.update.xp or goal==0:
 				self.client.update_trainer(trainer, total_goal=goal)
 				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, goal))
