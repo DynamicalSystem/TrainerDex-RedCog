@@ -264,11 +264,14 @@ class TrainerDex:
 					current_level = trainerdex.level_parser(xp=xp).level
 					if current_level != 40:
 						next_level = trainerdex.level_parser(level=current_level+1)
-						self.client.update_trainer(trainer, total_goal=next_level.total_xp)
-						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach level {nlevel}."
+						goal_needed = next_level.total_xp
+						self.client.update_trainer(trainer, total_goal=goal_needed)
+						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}."
 					else:
-						self.client.update_trainer(trainer, total_goal=0)
-					await self.bot.say(message_text.format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention, nlevel=next_level.level, goal_needed=next_level.total_xp))
+						goal_needed = xp + (20000000 - xp % 20000000)
+						self.client.update_trainer(trainer, total_goal=goal_needed)
+						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x"+str(int(goal_needed/20000000))+"."
+					await self.bot.say(message_text.format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention, nlevel=next_level.level, goal_needed=goal_needed))
 			update = self.client.create_update(trainer.id, xp)
 			await asyncio.sleep(1)
 			trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
