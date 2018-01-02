@@ -268,6 +268,7 @@ class TrainerDex:
 						self.client.update_trainer(trainer, total_goal=goal_needed)
 						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}."
 					else:
+						next_level = trainerdex.level_parser(level=40)
 						goal_needed = xp + (20000000 - xp % 20000000)
 						self.client.update_trainer(trainer, total_goal=goal_needed)
 						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x"+str(int(goal_needed/20000000))+"."
