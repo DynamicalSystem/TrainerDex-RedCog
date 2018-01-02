@@ -354,7 +354,7 @@ class TrainerDex:
 			embed = await self.updateCard(trainer)
 			await self.bot.edit_message(message, "{}, your daily goal has been set to {:,}".format(ctx.message.author.mention, goal), embed=embed)
 		elif which.title()=='Total':
-			if goal = 'auto':
+			if goal == 'auto':
 				current_level = trainer.level.level
 				if current_level != 40:
 					next_level = trainerdex.level_parser(level=current_level+1)
