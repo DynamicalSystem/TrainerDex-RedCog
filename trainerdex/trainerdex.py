@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import datetime
 import discord
 import humanize
@@ -51,7 +51,7 @@ class TrainerDex:
 	
 	def __init__(self, bot):
 		self.bot = bot
-		self.client = trainerdex.Client(token)
+		self.client = trainerdex.Client(token=token, identifier='ts_social_discord') if token else trainerdex.Client()
 	
 	async def get_trainer(self, username=None, discord=None, account=None, prefered=True):
 		"""Returns a Trainer object for a given discord, trainer username or account id
