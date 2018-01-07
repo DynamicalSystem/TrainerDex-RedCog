@@ -115,8 +115,11 @@ class TrainerDex:
 	async def updateCard(self, trainer):
 		dailyDiff = await self.getDiff(trainer, 1)
 		level=trainer.level
-		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id))
+		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id), title='{} | TL {}'.format(trainer.username, level.level))
 		embed.set_author(name=trainer.username)
+		for x in self.client.leaderboard():
+			if x['id'] == trainer.id:
+				embed.add_field(name='🌍', value='#{}'.format(x['position']))
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
 			embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
@@ -159,8 +162,11 @@ class TrainerDex:
 		discordUser = account.discord()[0]
 		level=trainer.level
 		
-		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id))
+		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id), title='{} | TL {}'.format(trainer.username, level.level))
 		embed.set_author(name=trainer.username)
+		for x in self.client.leaderboard():
+			if x['id'] == trainer.id:
+				embed.add_field(name='🌍', value='#{}'.format(x['position']))
 		embed.add_field(name='Team', value=trainer.team().name)
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
