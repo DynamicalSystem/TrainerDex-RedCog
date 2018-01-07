@@ -29,7 +29,7 @@ Difference = namedtuple('Difference', [
 	'change_xp',
 ])
 
-levelup = ["You reached your goal, well done. Now if only applied that much effort at buying {member} pizza, I might be happy!", "Well done on reaching {goal:,}", "much xp, very goal", "Great, you got to {goal:,} XP, now what?"]
+levelup = ["You reached your goal, well done. Honestly, that's really good. I'm happy. John Hanke is happy. {member} is happy  for you. Well done!", "Well done on reaching your goal of {goal:,}.", "much xp, very goal (grats)", "Great, you got to {goal:,} XP, now what?"]
 
 class StartDateUpdate:
 	
@@ -266,12 +266,12 @@ class TrainerDex:
 						next_level = trainerdex.level_parser(level=current_level+1)
 						goal_needed = next_level.total_xp
 						self.client.update_trainer(trainer, total_goal=goal_needed)
-						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}."
+						message_text += "\nI've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}."
 					else:
 						next_level = trainerdex.level_parser(level=40)
 						goal_needed = xp + (20000000 - xp % 20000000)
 						self.client.update_trainer(trainer, total_goal=goal_needed)
-						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x"+str(int(goal_needed/20000000))+"."
+						message_text += "\nI've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x"+str(int(goal_needed/20000000))+"."
 					await self.bot.say(message_text.format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention, nlevel=next_level.level, goal_needed=goal_needed))
 			update = self.client.create_update(trainer.id, xp)
 			await asyncio.sleep(1)
@@ -280,14 +280,17 @@ class TrainerDex:
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
 		else:
 			await self.bot.edit_message(message, '`Error: Trainer not found`')
+
 	@update.command(name="badges", pass_context=True)
 	async def advanced_update(self, ctx):
-		
 		await self.bot.say("We now have a tool that's better than this tool was. Go to https://www.trainerdex.co.uk/tools/update_stats/")
 	
-	@update.command(name="name", pass_context=True)
+	@update.command(name="name", pass_context=True, enabled=False)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
-		"""Update your name on your profile
+		"""
+		Note: Disabled temporarilly. Names unused
+		
+		Update your name on your profile
 		
 		Set your name in form of <first_name> <last_name>
 		If you want to blank your last name set it to two dots '..'
@@ -370,8 +373,8 @@ class TrainerDex:
 					trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
 					embed = await self.updateCard(trainer)
 					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x{multiplier}".format(goal_needed=goal_needed, multiplier=int(goal_needed/20000000)), embed=embed)
-			elif goal>trainer.update.xp or goal==0:
-				self.client.update_trainer(trainer, total_goal=goal)
+			elif int(goal)>trainer.update.xp or goal==0:
+				self.client.update_trainer(trainer, total_goal=int(goal))
 				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, goal))
 			else:
 				await self.bot.edit_message(message, "{}, try something higher than your current XP of {:,}.".format(ctx.message.author.mention, trainer.update.xp))
