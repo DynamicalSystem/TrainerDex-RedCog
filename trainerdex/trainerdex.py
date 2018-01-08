@@ -379,9 +379,11 @@ class TrainerDex:
 					trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
 					embed = await self.updateCard(trainer)
 					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x{multiplier}".format(goal_needed=goal_needed, multiplier=int(goal_needed/20000000)), embed=embed)
-			elif int(goal)>trainer.update.xp or goal==0:
+			elif int(goal)>trainer.update.xp or int(goal)==0:
 				self.client.update_trainer(trainer, total_goal=int(goal))
-				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, int(goal)))
+				trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+				embed = await self.updateCard(trainer)
+				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, int(goal)), embed=embed)
 			else:
 				await self.bot.edit_message(message, "{}, try something higher than your current XP of {:,}.".format(ctx.message.author.mention, trainer.update.xp))
 		else:
