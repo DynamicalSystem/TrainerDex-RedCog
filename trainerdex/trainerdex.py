@@ -201,7 +201,7 @@ class TrainerDex:
 			discordUser = self.client.import_discord_user(uid=mention.id, user=user.id)
 		#create trainer
 		print('Creating trainer...')
-		trainer = self.client.create_trainer(username=username, team=team.id, has_cheated=has_cheated, currently_cheats=currently_cheats, prefered=prefered, account=user.id)
+		trainer = self.client.create_trainer(username=username, team=team.id, has_cheated=has_cheated, currently_cheats=currently_cheats, prefered=prefered, account=user.id, verified=True)
 		print('Trainer created. Creating update object...')
 		#create update object
 		update = self.client.create_update(trainer.id, xp)
