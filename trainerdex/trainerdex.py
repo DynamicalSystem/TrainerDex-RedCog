@@ -112,8 +112,8 @@ class TrainerDex:
 		
 		return diff
 	
-	async def updateCard(self, trainer):
-		dailyDiff = await self.getDiff(trainer, 1)
+	async def updateCard(self, trainer, days=None):
+		dailyDiff = await self.getDiff(trainer, days or 1)
 		level=trainer.level
 		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id), title='{} | TL {}'.format(trainer.username, level.level))
 		embed.set_author(name=trainer.username)
@@ -138,14 +138,14 @@ class TrainerDex:
 		else:
 			totalGoal = None
 		if totalGoal:
-			totalDiff = await self.getDiff(trainer, 7)
+			totalDiff = await self.getDiff(trainer, days or 7)
 			embed.add_field(name='Goal remaining', value='{:,} out of {}'.format(totalGoal-totalDiff.new_xp, humanize.intword(totalGoal)))
 			if totalDiff.change_time.seconds>=1:
 				eta = lambda x, y, z: round(x/(y/z))
 				eta = eta(totalGoal-totalDiff.new_xp, totalDiff.change_xp, totalDiff.change_time.total_seconds())
 				eta = totalDiff.new_date+datetime.timedelta(seconds=eta)
 				embed.add_field(name='Goal ETA', value=humanize.naturaltime(eta.replace(tzinfo=None)))
-			if totalDiff.change_time.total_seconds()<583200:
+			if totalDiff.change_time.total_seconds()<583200 or days:
 				embed.description = "ETA may be inaccurate. Using {} of data.".format(humanize.naturaldelta(totalDiff.change_time))
 		embed.set_footer(text="Total XP: {:,}".format(dailyDiff.new_xp))
 		
@@ -249,6 +249,17 @@ class TrainerDex:
 			
 		if ctx.invoked_subcommand is None:
 			await self.bot.send_cmd_help(ctx)
+	
+	@commands.command(pass_context=True)
+	async def average(self, ctx, days: int): 
+		message = await self.bot.say('Calculating...')
+		trainer = await self.get_trainer(discord=ctx.message.author.id)
+		if not trainer:
+			await self.bot.edit_message(message, '`Error: Trainer not found`')
+			return
+		else:
+			embed = await self.updateCard(trainer, days=days)
+			await self.bot.edit_message(message, new_content=' ', embed=embed)
 	
 	@update.command(name="xp", pass_context=True)
 	async def xp(self, ctx, xp: int): 
