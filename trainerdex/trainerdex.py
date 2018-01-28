@@ -126,7 +126,7 @@ class TrainerDex:
 		else:
 			embed.add_field(name='Total XP', value='{}'.format(humanize.intword(trainer.update.xp)))
 		if dailyDiff.change_xp and dailyDiff.change_time:
-			gain = '{:,} since {}. '.format(dailyDiff.change_xp, humanize.naturalday(dailyDiff.old_date))
+			gain = '{:,} since {}. '.format(dailyDiff.change_xp, humanize.naturaldate(dailyDiff.old_date))
 			if dailyDiff.change_time.days>1:
 				gain += "That's {:,} xp/day.".format(round(dailyDiff.change_xp/dailyDiff.change_time.days))
 			embed.add_field(name='Gain', value=gain)
@@ -357,7 +357,7 @@ class TrainerDex:
 				message = await self.bot.say("The date you entered was before launch date of 6th July 2016. Sorry, but you can't do that.")
 				return
 			self.client.update_trainer(trainer, start_date=suspected_time.datetime(to_timezone='UTC'))
-			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, suspected_time))
+			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, humanize.naturaldate(suspected_time)))
 	
 	@update.command(name="goal", pass_context=True)
 	async def goal(self, ctx, which: str, goal):
