@@ -433,11 +433,11 @@ class TrainerDex:
 				if item['user_id'] in subset:
 					yourself = item
 			for x in range(yourself['position']-5,yourself['position']+4):
-				if x in range(1,len(leaderboard_json)+1):
+				if x in range(1,len(leaderboard_json)-1):
 					x = leaderboard_json[x]
 					embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
 		else:
-			for i in range(min(25, len(leaderboard_json)+1)):
+			for i in range(min(25, len(leaderboard_json)-1)):
 				x = leaderboard_json[i]
 				embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
 		await self.bot.edit_message(message, new_content=str(datetime.date.today()), embed=embed)
