@@ -9,8 +9,21 @@ import pytz
 import random
 import requests
 import trainerdex
+import pyocr
+import pyocr.builders
+import requests
+import json
+import sys
+import math
+import glob
+import cv2
+import numpy as np
+import operator
+from io import BytesIO
+from PIL import Image
 from .utils import checks
 from .utils.dataIO import dataIO
+from functools import reduce
 from collections import namedtuple
 from discord.ext import commands
 from pendulum.parsing.exceptions import ParserError
@@ -448,7 +461,21 @@ class TrainerDex:
 		"""Simon says...."""
 		await self.bot.delete_message(ctx.message)
 		await self.bot.say(msg)
-	
+
+	@commands.command(pass_context=True, no_pm=True)
+	async def screenshot(self, ctx, *, msg: str):
+		"""Scan a trainer screen for XP"""
+		if msg.lower == "stats":
+			if ctx.message.attachments:
+				await self.bot.say(ctx.message.attachments[0])
+				response = requests.get(ctx.message.attachments[0]["url"])
+				update = Update(BytesIO(response.content))
+				if(update.stats_guess): await self.bot.say(f"Trainer name:\t{update.stats_guess}")
+			else:
+				await self.bot.say("Please attach a trainer screenshot")
+		else:
+				await self.bot.say("We've only implemented .screenshot stats so far.")
+
 	#Mod-commands
 	
 	@commands.command(name="addprofile", no_pm=True, pass_context=True, alias="newprofile")
@@ -571,3 +598,214 @@ def setup(bot):
 	check_folders()
 	check_file()
 	bot.add_cog(TrainerDex(bot))
+
+class Update:
+	def __init__(self, pic):
+		self.filename = pic
+		self.update_pic = Image.open(self.filename)
+		self.x, self.y = self.update_pic.size
+		self.res = f'{self.x}x{self.y}'
+		self.tool = self.__get_tesseract()
+		self.team_guess = self.__guess_team(self.update_pic)
+		self.stats = {}
+		self.stats['crop'] = self.__crop_percentage('stats')
+		self.words = self.__guess_word_boxes(self.stats['crop'])
+		if self.words:
+			self.stats['stats'] = self.__crop_absolute(self.stats['crop'], self.words[0].position)
+			self.stats_guess = self.words[len(self.words)-1].content
+		else:
+			self.stats['simplified'] = self.__simplify_colours_rtb(self.stats['crop'], self.team_guess, "stats")
+			self.stats_guess = self.__guess_digit(self.stats['simplified'])
+			
+
+	def __get_tesseract(self):
+		tools = pyocr.get_available_tools()
+
+		if len(tools) == 0:
+			print("No OCR tool found")
+			exit
+
+		# TBH, IDK if tesseract is always [0]
+		return tools[0]
+
+	RGB = {
+		'Instinct':{
+			'trainer':[[0, 135, 220], [20, 255, 255]],
+			'stats':[[220, 135, 0], [250, 240, 220]]
+			},
+		'Valor':{
+			'trainer':[[0, 0, 0], [255, 255, 255]], # fill in
+			'stats':[[140, 30, 50], [197, 141, 150]]
+		},
+		'Mystic':{
+			'trainer':[[0, 0, 0], [255, 255, 255]], # fill in
+			'stats':[[30, 85, 120], [220, 220, 220]]
+		},
+	}
+
+	def __simplify_colours_rtb(self, pic, team, category, pic_diag=False,):
+		# We are trying to increase the contrast between text and background.
+		# In order to do this we work with RGB:
+
+		# Put the picture into RGB and strip the 3rd dimension
+		rgb = cv2.cvtColor(np.array(pic), cv2.COLOR_BGR2RGB)
+	#	rgb2d = rgb[:, :, ::-1].copy() # Need to make this slice work properly
+
+		if pic_diag:
+			cv2.imshow('rgb', rgb)
+			cv2.waitKey(0)
+
+		# define range of team color in RGB
+		min_rgb = np.array(reduce(operator.getitem, [team, category], self.RGB))
+		max_rgb = np.array(reduce(operator.getitem, [team, category], self.RGB))
+		print(min_rgb)
+
+	    # Threshold the RGB image to get only team colors
+		mask = cv2.inRange(rgb, min_rgb, max_rgb)
+
+		if pic_diag:
+			cv2.imshow('mask', mask)
+			cv2.waitKey(0)
+
+		# Convert back to PIL
+		rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+		simplified_pic = Image.fromarray(rgb)
+
+		if pic_diag:
+			cv2.imshow('rgb', rgb)
+			cv2.waitKey(0)
+
+		return simplified_pic
+
+	def __simplify_colours_hsv(self):
+		# We are trying to increase the contrast between text and background.
+		# In order to do this we work with HSV:
+		# 	Turn anything that isn't the team's hue black (hue is [0, 177])
+		#	Turn anything that is below saturation black (saturation is [0, 255])
+		#	Turn anything above saturation white
+		#
+		# Do some format faff
+		hsv = cv2.cvtColor(np.array(self.update_pic), cv2.COLOR_BGR2HSV)
+		
+		# define range of team color in HSV
+		min_instinct = np.array([18, 200, 200])
+		max_instinct = np.array([20, 255, 255])
+
+	    # Threshold the HSV image to get only team colors
+		mask = cv2.inRange(hsv, min_instinct, max_instinct)
+
+		# Convert back to PIL
+		rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+		self.simplified_pic = Image.fromarray(rgb)
+
+		cv2.imshow('mask', mask)
+		cv2.waitKey(0)
+
+		return
+
+	def __crop_absolute(self, pic, box):
+		return pic.crop((
+			box[0][0],
+			box[0][1],
+			box[1][0],
+			box[1][1]
+		))
+
+	def __crop_percentage(self, box):
+		return self.update_pic.crop((
+			self.x * self.__BOXES[f"{box}_tl_x"],
+			self.y * self.__BOXES[f"{box}_tl_y"],
+			self.x * self.__BOXES[f"{box}_br_x"],
+			self.y * self.__BOXES[f"{box}_br_y"]
+		))
+
+	def __guess_text(self, pic):
+		text = self.tool.image_to_string(
+			pic,
+			lang="eng",
+			builder=pyocr.builders.TextBuilder()
+		)
+
+		if(text):
+			clean = max(text.splitlines(), key=len)
+			guess = "".join(clean.split())
+			return guess
+
+		return None
+
+	def __guess_word_boxes(self, pic):
+		word_boxes = self.tool.image_to_string(
+			pic,
+			lang="eng",
+			builder=pyocr.builders.WordBoxBuilder()
+		)
+
+		return word_boxes
+
+	def __guess_digit(self, pic):
+		text = self.tool.image_to_string(
+			pic,
+			lang="eng",
+			builder=pyocr.tesseract.DigitBuilder()
+		)
+
+		if(text):
+			clean = max(text.splitlines(), key=len)
+			guess = "".join(clean.split())
+			return guess
+
+		return None
+
+	__BOXES = {
+		'trainer_tl_x':0.060,
+		'trainer_tl_y':0.086,
+		'trainer_br_x':0.600,
+		'trainer_br_y':0.200,
+		'level_tl_x':0.497,
+		'level_tl_y':0.587,
+		'level_br_x':0.606,
+		'level_br_y':0.628,
+		'xp_tl_x':0.154,
+		'xp_tl_y':0.648,
+		'xp_br_x':0.445,
+		'xp_br_y':0.670,
+		'stats_tl_x':0.056,
+		'stats_tl_y':0.679,
+		'stats_br_x':0.805,
+		'stats_br_y':0.927
+	}
+
+	def __distance(self, c1, c2):
+		(r1,g1,b1) = c1
+		(r2,g2,b2) = c2
+		return math.sqrt((r1 - r2)**2 + (g1 - g2) ** 2 + (b1 - b2) **2)
+
+	__COLOURS = (
+		('Valor', (255, 0, 0)),
+		('Mystic', (0, 5, 255)),
+		('Instinct', (255, 246, 0))
+	)
+
+	def __guess_team(self, pic, print_diag=False, alg=2):
+		if alg==1:
+			cropped_image = pic.crop(
+				(
+					0,
+					pic.size[1]/2,
+					5,
+					pic.size[1]/2+10
+				)
+			)
+			h = cropped_image.histogram()
+			r, g, b = [h[i:i+int(256)] for i in range(0, 768, 256)] # Splits the histogram for the image into red, green and blue
+			rgb = tuple([sum(i*w for i, w in enumerate(c))/sum(c) for c in [r,g,b]]) # averages the values of each colour and joins back into one tuple or floats
+		elif alg==2:
+			h = pic.histogram()
+			rgb = pic.getpixel((2, pic.size[1]/2))[0:3]
+		closest_colours = sorted(self.__COLOURS, key=lambda colour: self.__distance(colour[1], rgb))
+		if print_diag:
+			print("Channels: "+str(int(len(h)/256)))
+			print("RGB: "+str(rgb))
+			print("Guesses :"+str(closest_colours))
+		best_guess = closest_colours[0][0]
+		return best_guess
