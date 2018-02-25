@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import datetime
 import discord
 import humanize
@@ -29,7 +29,7 @@ Difference = namedtuple('Difference', [
 	'change_xp',
 ])
 
-levelup = ["You reached your goal, well done. Now if only applied that much effort at buying {member} pizza, I might be happy!", "Well done on reaching {goal:,}", "much xp, very goal", "Great, you got to {goal:,} XP, now what?"]
+levelup = ["You reached your goal, well done. Honestly, that's really good. I'm happy. John Hanke is happy. {member} is happy  for you. Well done!", "Well done on reaching your goal of {goal:,}.", "much xp, very goal (grats)", "Great, you got to {goal:,} XP, now what?"]
 
 class StartDateUpdate:
 	
@@ -51,7 +51,7 @@ class TrainerDex:
 	
 	def __init__(self, bot):
 		self.bot = bot
-		self.client = trainerdex.Client(token)
+		self.client = trainerdex.Client(token=token, identifier='ts_social_discord') if token else trainerdex.Client()
 	
 	async def get_trainer(self, username=None, discord=None, account=None, prefered=True):
 		"""Returns a Trainer object for a given discord, trainer username or account id
@@ -112,18 +112,21 @@ class TrainerDex:
 		
 		return diff
 	
-	async def updateCard(self, trainer):
-		dailyDiff = await self.getDiff(trainer, 1)
+	async def updateCard(self, trainer, days=None):
+		dailyDiff = await self.getDiff(trainer, days or 1)
 		level=trainer.level
-		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id))
+		embed=discord.Embed(timestamp=dailyDiff.new_date, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id), title='{} | TL {}'.format(trainer.username, level.level))
 		embed.set_author(name=trainer.username)
+		for x in self.client.leaderboard():
+			if x['id'] == trainer.id:
+				embed.add_field(name='🌍', value='#{}'.format(x['position']))
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
 			embed.add_field(name='XP', value='{:,} / {:,}'.format(trainer.update.xp-level.total_xp,level.xp_required))
 		else:
 			embed.add_field(name='Total XP', value='{}'.format(humanize.intword(trainer.update.xp)))
 		if dailyDiff.change_xp and dailyDiff.change_time:
-			gain = '{:,} since {}. '.format(dailyDiff.change_xp, humanize.naturalday(dailyDiff.old_date))
+			gain = '{:,} since {}. '.format(dailyDiff.change_xp, humanize.naturaldate(dailyDiff.old_date))
 			if dailyDiff.change_time.days>1:
 				gain += "That's {:,} xp/day.".format(round(dailyDiff.change_xp/dailyDiff.change_time.days))
 			embed.add_field(name='Gain', value=gain)
@@ -135,14 +138,14 @@ class TrainerDex:
 		else:
 			totalGoal = None
 		if totalGoal:
-			totalDiff = await self.getDiff(trainer, 7)
+			totalDiff = await self.getDiff(trainer, days or 7)
 			embed.add_field(name='Goal remaining', value='{:,} out of {}'.format(totalGoal-totalDiff.new_xp, humanize.intword(totalGoal)))
 			if totalDiff.change_time.seconds>=1:
 				eta = lambda x, y, z: round(x/(y/z))
 				eta = eta(totalGoal-totalDiff.new_xp, totalDiff.change_xp, totalDiff.change_time.total_seconds())
 				eta = totalDiff.new_date+datetime.timedelta(seconds=eta)
 				embed.add_field(name='Goal ETA', value=humanize.naturaltime(eta.replace(tzinfo=None)))
-			if totalDiff.change_time.total_seconds()<583200:
+			if totalDiff.change_time.total_seconds()<583200 or days:
 				embed.description = "ETA may be inaccurate. Using {} of data.".format(humanize.naturaldelta(totalDiff.change_time))
 		embed.set_footer(text="Total XP: {:,}".format(dailyDiff.new_xp))
 		
@@ -159,8 +162,11 @@ class TrainerDex:
 		discordUser = account.discord()[0]
 		level=trainer.level
 		
-		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id))
+		embed=discord.Embed(timestamp=trainer.update.update_time, colour=int(trainer.team().colour.replace("#", ""), 16), url="https://www.trainerdex.co.uk/profile?id={}".format(trainer.id), title='{} | TL {}'.format(trainer.username, level.level))
 		embed.set_author(name=trainer.username)
+		for x in self.client.leaderboard():
+			if x['id'] == trainer.id:
+				embed.add_field(name='🌍', value='#{}'.format(x['position']))
 		embed.add_field(name='Team', value=trainer.team().name)
 		embed.add_field(name='Level', value=level.level)
 		if level.level != 40:
@@ -195,7 +201,7 @@ class TrainerDex:
 			discordUser = self.client.import_discord_user(uid=mention.id, user=user.id)
 		#create trainer
 		print('Creating trainer...')
-		trainer = self.client.create_trainer(username=username, team=team.id, has_cheated=has_cheated, currently_cheats=currently_cheats, prefered=prefered, account=user.id)
+		trainer = self.client.create_trainer(username=username, team=team.id, has_cheated=has_cheated, currently_cheats=currently_cheats, prefered=prefered, account=user.id, verified=True)
 		print('Trainer created. Creating update object...')
 		#create update object
 		update = self.client.create_update(trainer.id, xp)
@@ -244,6 +250,17 @@ class TrainerDex:
 		if ctx.invoked_subcommand is None:
 			await self.bot.send_cmd_help(ctx)
 	
+	@commands.command(pass_context=True)
+	async def average(self, ctx, days: int): 
+		message = await self.bot.say('Calculating...')
+		trainer = await self.get_trainer(discord=ctx.message.author.id)
+		if not trainer:
+			await self.bot.edit_message(message, '`Error: Trainer not found`')
+			return
+		else:
+			embed = await self.updateCard(trainer, days=days)
+			await self.bot.edit_message(message, new_content=' ', embed=embed)
+	
 	@update.command(name="xp", pass_context=True)
 	async def xp(self, ctx, xp: int): 
 		"""Update your xp
@@ -264,11 +281,15 @@ class TrainerDex:
 					current_level = trainerdex.level_parser(xp=xp).level
 					if current_level != 40:
 						next_level = trainerdex.level_parser(level=current_level+1)
-						self.client.update_trainer(trainer, total_goal=next_level.total_xp)
-						message_text += " I've automatically set your goal to {goal_needed}, which is what you need to reach level {nlevel}."
+						goal_needed = next_level.total_xp
+						self.client.update_trainer(trainer, total_goal=goal_needed)
+						message_text += "\nI've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}."
 					else:
-						self.client.update_trainer(trainer, total_goal=0)
-					await self.bot.say(message_text.format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention, nlevel=next_level.level, goal_needed=next_level.total_xp))
+						next_level = trainerdex.level_parser(level=40)
+						goal_needed = xp + (20000000 - xp % 20000000)
+						self.client.update_trainer(trainer, total_goal=goal_needed)
+						message_text += "\nI've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x"+str(int(goal_needed/20000000))+"."
+					await self.bot.say(message_text.format(goal=trainer.goal_total, member=random.choice(list(ctx.message.server.members)).mention, nlevel=next_level.level, goal_needed=goal_needed))
 			update = self.client.create_update(trainer.id, xp)
 			await asyncio.sleep(1)
 			trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
@@ -276,14 +297,17 @@ class TrainerDex:
 			await self.bot.edit_message(message, new_content='Success 👍', embed=embed)
 		else:
 			await self.bot.edit_message(message, '`Error: Trainer not found`')
+
 	@update.command(name="badges", pass_context=True)
 	async def advanced_update(self, ctx):
-		
 		await self.bot.say("We now have a tool that's better than this tool was. Go to https://www.trainerdex.co.uk/tools/update_stats/")
 	
-	@update.command(name="name", pass_context=True)
+	@update.command(name="name", pass_context=True, enabled=False)
 	async def name(self, ctx, first_name: str, last_name: str=None): 
-		"""Update your name on your profile
+		"""
+		Note: Disabled temporarilly. Names unused
+		
+		Update your name on your profile
 		
 		Set your name in form of <first_name> <last_name>
 		If you want to blank your last name set it to two dots '..'
@@ -333,10 +357,10 @@ class TrainerDex:
 				message = await self.bot.say("The date you entered was before launch date of 6th July 2016. Sorry, but you can't do that.")
 				return
 			self.client.update_trainer(trainer, start_date=suspected_time.datetime(to_timezone='UTC'))
-			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, suspected_time))
+			message = await self.bot.say("{}, your start date has been set to {}".format(ctx.message.author.mention, humanize.naturaldate(suspected_time)))
 	
 	@update.command(name="goal", pass_context=True)
-	async def goal(self, ctx, which: str, goal: int):
+	async def goal(self, ctx, which: str, goal):
 		"""Update your goals
 		
 		Example: update goal daily 2000
@@ -347,11 +371,30 @@ class TrainerDex:
 		trainer = await self.get_trainer(discord=ctx.message.author.id)
 		if which.title()=='Daily':
 			self.client.update_trainer(trainer, daily_goal=goal)
-			await self.bot.edit_message(message, "{}, your daily goal has been set to {:,}".format(ctx.message.author.mention, goal))
+			trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+			embed = await self.updateCard(trainer)
+			await self.bot.edit_message(message, "{}, your daily goal has been set to {:,}".format(ctx.message.author.mention, goal), embed=embed)
 		elif which.title()=='Total':
-			if goal>trainer.update.xp or goal==0:
-				self.client.update_trainer(trainer, total_goal=goal)
-				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, goal))
+			if goal == 'auto':
+				current_level = trainer.level.level
+				if current_level != 40:
+					next_level = trainerdex.level_parser(level=current_level+1)
+					goal_needed = next_level.total_xp
+					self.client.update_trainer(trainer, total_goal=goal_needed)
+					trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+					embed = await self.updateCard(trainer)
+					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL {nlevel}.".format(goal_needed=goal_needed, nlevel=next_level.level), embed=embed)
+				else:
+					goal_needed = trainer.update.xp + (20000000 - trainer.update.xp % 20000000)
+					self.client.update_trainer(trainer, total_goal=goal_needed)
+					trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+					embed = await self.updateCard(trainer)
+					await self.bot.edit_message(message, "I've automatically set your goal to {goal_needed}, which is what you need to reach TL 40x{multiplier}".format(goal_needed=goal_needed, multiplier=int(goal_needed/20000000)), embed=embed)
+			elif int(goal)>trainer.update.xp or int(goal)==0:
+				self.client.update_trainer(trainer, total_goal=int(goal))
+				trainer = self.client.get_trainer(trainer.id) #Refreshes the trainer
+				embed = await self.updateCard(trainer)
+				await self.bot.edit_message(message, "{}, your total goal has been set to {:,}".format(ctx.message.author.mention, int(goal)), embed=embed)
 			else:
 				await self.bot.edit_message(message, "{}, try something higher than your current XP of {:,}.".format(ctx.message.author.mention, trainer.update.xp))
 		else:
@@ -390,11 +433,11 @@ class TrainerDex:
 				if item['user_id'] in subset:
 					yourself = item
 			for x in range(yourself['position']-5,yourself['position']+4):
-				if x in range(1,len(leaderboard_json)+1):
+				if x in range(1,len(leaderboard_json)-1):
 					x = leaderboard_json[x]
 					embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
 		else:
-			for i in range(min(25, len(leaderboard_json)+1)):
+			for i in range(min(25, len(leaderboard_json)-1)):
 				x = leaderboard_json[i]
 				embed.add_field(name='{}. {} {}'.format(x['position'], x['username'], x['faction']['name']), value="{:,}, lvl {}".format(x['xp'], x['level']))
 		await self.bot.edit_message(message, new_content=str(datetime.date.today()), embed=embed)
