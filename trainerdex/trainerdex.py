@@ -1,13 +1,22 @@
 ﻿import asyncio
+import cv2
 import datetime
 import discord
+import glob
 import humanize
+import json
+import math
 import maya
+import numpy as np
+import operator
 import os
 import pycent
+import pyocr
+import pyocr.builders
 import pytz
 import random
 import requests
+import sys
 import trainerdex
 import pyocr
 import pyocr.builders
@@ -26,7 +35,10 @@ from .utils.dataIO import dataIO
 from functools import reduce
 from collections import namedtuple
 from discord.ext import commands
+from functools import reduce
+from io import BytesIO
 from pendulum.parsing.exceptions import ParserError
+from PIL import Image
 
 
 settings_file = 'data/trainerdex/settings.json'
@@ -609,15 +621,16 @@ class Update:
 		self.team_guess = self.__guess_team(self.update_pic)
 		self.stats = {}
 		self.stats['crop'] = self.__crop_percentage('stats')
-		self.words = self.__guess_word_boxes(self.stats['crop'])
+		self.words = []
+		for x in self.__guess_word_boxes(self.stats['crop']):
+			if x.content.strip().isdigit():
+				self.words.append(x)
 		if self.words:
 			self.stats['stats'] = self.__crop_absolute(self.stats['crop'], self.words[0].position)
 			self.stats_guess = self.words[len(self.words)-1].content
 		else:
-			self.stats['simplified'] = self.__simplify_colours_rtb(self.stats['crop'], self.team_guess, "stats")
-			self.stats_guess = self.__guess_digit(self.stats['simplified'])
+			self.stats_guess = None
 			
-
 	def __get_tesseract(self):
 		tools = pyocr.get_available_tools()
 
@@ -627,81 +640,6 @@ class Update:
 
 		# TBH, IDK if tesseract is always [0]
 		return tools[0]
-
-	RGB = {
-		'Instinct':{
-			'trainer':[[0, 135, 220], [20, 255, 255]],
-			'stats':[[220, 135, 0], [250, 240, 220]]
-			},
-		'Valor':{
-			'trainer':[[0, 0, 0], [255, 255, 255]], # fill in
-			'stats':[[140, 30, 50], [197, 141, 150]]
-		},
-		'Mystic':{
-			'trainer':[[0, 0, 0], [255, 255, 255]], # fill in
-			'stats':[[30, 85, 120], [220, 220, 220]]
-		},
-	}
-
-	def __simplify_colours_rtb(self, pic, team, category, pic_diag=False,):
-		# We are trying to increase the contrast between text and background.
-		# In order to do this we work with RGB:
-
-		# Put the picture into RGB and strip the 3rd dimension
-		rgb = cv2.cvtColor(np.array(pic), cv2.COLOR_BGR2RGB)
-	#	rgb2d = rgb[:, :, ::-1].copy() # Need to make this slice work properly
-
-		if pic_diag:
-			cv2.imshow('rgb', rgb)
-			cv2.waitKey(0)
-
-		# define range of team color in RGB
-		min_rgb = np.array(reduce(operator.getitem, [team, category], self.RGB))
-		max_rgb = np.array(reduce(operator.getitem, [team, category], self.RGB))
-		print(min_rgb)
-
-	    # Threshold the RGB image to get only team colors
-		mask = cv2.inRange(rgb, min_rgb, max_rgb)
-
-		if pic_diag:
-			cv2.imshow('mask', mask)
-			cv2.waitKey(0)
-
-		# Convert back to PIL
-		rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
-		simplified_pic = Image.fromarray(rgb)
-
-		if pic_diag:
-			cv2.imshow('rgb', rgb)
-			cv2.waitKey(0)
-
-		return simplified_pic
-
-	def __simplify_colours_hsv(self):
-		# We are trying to increase the contrast between text and background.
-		# In order to do this we work with HSV:
-		# 	Turn anything that isn't the team's hue black (hue is [0, 177])
-		#	Turn anything that is below saturation black (saturation is [0, 255])
-		#	Turn anything above saturation white
-		#
-		# Do some format faff
-		hsv = cv2.cvtColor(np.array(self.update_pic), cv2.COLOR_BGR2HSV)
-		
-		# define range of team color in HSV
-		min_instinct = np.array([18, 200, 200])
-		max_instinct = np.array([20, 255, 255])
-
-	    # Threshold the HSV image to get only team colors
-		mask = cv2.inRange(hsv, min_instinct, max_instinct)
-
-		# Convert back to PIL
-		rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
-		self.simplified_pic = Image.fromarray(rgb)
-
-		cv2.imshow('mask', mask)
-		cv2.waitKey(0)
-
-		return
 
 	def __crop_absolute(self, pic, box):
 		return pic.crop((
@@ -770,7 +708,7 @@ class Update:
 		'xp_br_x':0.445,
 		'xp_br_y':0.670,
 		'stats_tl_x':0.056,
-		'stats_tl_y':0.679,
+		'stats_tl_y':0.500,
 		'stats_br_x':0.805,
 		'stats_br_y':0.927
 	}
