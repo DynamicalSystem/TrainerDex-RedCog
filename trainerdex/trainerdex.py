@@ -1,13 +1,22 @@
 ﻿import asyncio
+import cv2
 import datetime
 import discord
+import glob
 import humanize
+import json
+import math
 import maya
+import numpy as np
+import operator
 import os
 import pycent
+import pyocr
+import pyocr.builders
 import pytz
 import random
 import requests
+import sys
 import trainerdex
 import pyocr
 import pyocr.builders
@@ -26,7 +35,10 @@ from .utils.dataIO import dataIO
 from functools import reduce
 from collections import namedtuple
 from discord.ext import commands
+from functools import reduce
+from io import BytesIO
 from pendulum.parsing.exceptions import ParserError
+from PIL import Image
 
 
 settings_file = 'data/trainerdex/settings.json'
